@@ -73,7 +73,7 @@ function App() {
   useEffect(() => {
     async function fetchActiveRooms() {
       try {
-        const res = await fetch('http://localhost:5000/api/rooms');
+        const res = await fetch('/api/rooms');
         if (res.ok) {
           const data = await res.json();
           setPublicRooms(data);

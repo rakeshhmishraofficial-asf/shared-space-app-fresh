@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+// Automatically detect host URL so Socket.IO connects to current domain on production or localhost in dev
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
 
 export const useSocket = (roomCode, username, roomOptions = {}) => {
   const [socket, setSocket] = useState(null)
@@ -14,7 +15,7 @@ export const useSocket = (roomCode, username, roomOptions = {}) => {
     })
 
     socketInstance.on('connect', () => {
-      console.log('✅ Connected to server')
+      console.log('✅ Connected to server:', SOCKET_URL)
       setConnected(true)
       
       if (roomCode && username) {
