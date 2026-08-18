@@ -3,10 +3,16 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { AccessToken } from 'livekit-server-sdk';
 import logger from './logger.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistPath = path.join(__dirname, '../client/dist');
 
 const app = express();
 const httpServer = createServer(app);
@@ -19,6 +25,7 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(clientDistPath));
 
 // LiveKit Token Endpoint
 app.post('/api/livekit-token', async (req, res) => {
@@ -400,6 +407,13 @@ io.on('connection', (socket) => {
     })
     logger.socket('User disconnected', { socketId: socket.id });
   });
+});
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+    return next();
+  }
+  res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;
