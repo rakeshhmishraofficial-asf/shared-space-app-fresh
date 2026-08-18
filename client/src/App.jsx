@@ -132,7 +132,6 @@ function App() {
       if (!hidePositions) {
         setBroadcastGif({ svgId: id, title, username: gifUser });
         toast.success(`🔥 @${gifUser} broadcasted ${title}!`, { icon: '🔥', duration: 5000 });
-        setTimeout(() => setBroadcastGif(null), 30000);
       }
     });
 
@@ -316,7 +315,6 @@ function App() {
     if (socket && currentRoom) {
       socket.emit('position:gif', { roomCode: currentRoom, username, id, title });
     }
-    setTimeout(() => setBroadcastGif(null), 30000);
   }
 
   const handleShareRoomLink = () => {
