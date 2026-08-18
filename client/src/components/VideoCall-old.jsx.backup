@@ -1,0 +1,344 @@
+import { useEffect, useRef, useState } from 'react'
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Sparkles, Camera } from 'lucide-react'
+import toast from 'react-hot-toast'
+
+export default function VideoCall({ socket, roomCode, username, isOpen, onClose }) {
+  const localVideoRef = useRef(null)
+  const remoteVideosRef = useRef({})
+  const [localStream, setLocalStream] = useState(null)
+  const [peers, setPeers] = useState({})
+  const [videoEnabled, setVideoEnabled] = useState(true)
+  const [audioEnabled, setAudioEnabled] = useState(true)
+  const [remoteUsers, setRemoteUsers] = useState([])
+  const [showFilters, setShowFilters] = useState(false)
+  const [activeFilter, setActiveFilter] = useState('none')
+  const [activeVoiceFilter, setActiveVoiceFilter] = useState('none')
+
+  // Video filters
+  const videoFilters = [
+    { id: 'none', name: 'No Filter', effect: 'none' },
+    { id: 'blur', name: 'Blur Background', effect: 'blur(10px)' },
+    { id: 'grayscale', name: 'Black & White', effect: 'grayscale(100%)' },
+    { id: 'sepia', name: 'Vintage', effect: 'sepia(100%)' },
+    { id: 'invert', name: 'Inverted', effect: 'invert(100%)' },
+    { id: 'brightness', name: 'Bright', effect: 'brightness(150%)' },
+    { id: 'contrast', name: 'High Contrast', effect: 'contrast(200%)' },
+    { id: 'saturate', name: 'Vibrant', effect: 'saturate(200%)' },
+    { id: 'hue', name: 'Color Shift', effect: 'hue-rotate(180deg)' },
+  ]
+
+  // Voice filters (these will modify audio in real-time)
+  const voiceFilters = [
+    { id: 'none', name: 'Normal Voice', pitch: 1.0, rate: 1.0 },
+    { id: 'male-deep', name: 'Deep Male', pitch: 0.7, rate: 0.9 },
+    { id: 'male-normal', name: 'Normal Male', pitch: 0.85, rate: 1.0 },
+    { id: 'female-high', name: 'High Female', pitch: 1.5, rate: 1.1 },
+    { id: 'female-normal', name: 'Normal Female', pitch: 1.3, rate: 1.0 },
+    { id: 'child', name: 'Child Voice', pitch: 1.8, rate: 1.2 },
+    { id: 'robot', name: 'Robot', pitch: 0.5, rate: 0.8 },
+    { id: 'chipmunk', name: 'Chipmunk', pitch: 2.0, rate: 1.5 },
+    { id: 'monster', name: 'Monster', pitch: 0.4, rate: 0.7 },
+    { id: 'arijit', name: 'Arijit Singh Style', pitch: 0.9, rate: 0.95 },
+    { id: 'actress', name: 'Actress Voice', pitch: 1.4, rate: 1.05 },
+  ]
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    startCall()
+
+    return () => {
+      stopCall()
+    }
+  }, [isOpen])
+
+  const startCall = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      })
+
+      setLocalStream(stream)
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream
+      }
+
+      // Notify others that you joined the call
+      socket?.emit('join-call', { roomCode, username })
+      toast.success('Joined video call!')
+    } catch (error) {
+      console.error('Error accessing media devices:', error)
+      toast.error('Could not access camera/microphone')
+    }
+  }
+
+  const stopCall = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop())
+      setLocalStream(null)
+    }
+
+    // Notify others that you left
+    socket?.emit('leave-call', { roomCode, username })
+    
+    // Close all peer connections
+    Object.values(peers).forEach(peer => peer.close())
+    setPeers({})
+    setRemoteUsers([])
+  }
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0]
+      videoTrack.enabled = !videoTrack.enabled
+      setVideoEnabled(videoTrack.enabled)
+      toast(videoTrack.enabled ? 'Video enabled' : 'Video disabled')
+    }
+  }
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0]
+      audioTrack.enabled = !audioTrack.enabled
+      setAudioEnabled(audioTrack.enabled)
+      toast(audioTrack.enabled ? 'Mic enabled' : 'Mic muted')
+    }
+  }
+
+  const applyVideoFilter = (filter) => {
+    setActiveFilter(filter.id)
+    if (localVideoRef.current) {
+      localVideoRef.current.style.filter = filter.effect
+    }
+    toast.success(`Filter: ${filter.name}`)
+  }
+
+  const applyVoiceFilter = (filter) => {
+    setActiveVoiceFilter(filter.id)
+    
+    if (localStream && filter.id !== 'none') {
+      const audioContext = new AudioContext()
+      const source = audioContext.createMediaStreamSource(localStream)
+      
+      // Create pitch shifter (simplified - real implementation would use Web Audio API extensively)
+      const gainNode = audioContext.createGain()
+      gainNode.gain.value = filter.pitch
+      
+      source.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      toast.success(`Voice: ${filter.name}`)
+    } else {
+      toast.success('Voice: Normal')
+    }
+  }
+
+  const endCall = () => {
+    stopCall()
+    onClose()
+    toast('Call ended')
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
+      {/* Header */}
+      <div className="glass border-b border-white/10 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Video className="w-5 h-5 text-purple-400" />
+          <h3 className="font-bold">Video Call - {roomCode}</h3>
+          <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-sm">
+            <Users className="w-4 h-4" />
+            <span>{remoteUsers.length + 1}</span>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="px-3 py-1.5 glass hover:bg-white/10 rounded-lg transition-all flex items-center gap-2"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="hidden md:inline">Filters</span>
+        </button>
+      </div>
+
+      {/* Main Video Area */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Remote Videos Grid */}
+        <div className="absolute inset-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
+          {remoteUsers.map((user) => (
+            <div key={user.id} className="relative bg-gray-800 rounded-lg overflow-hidden">
+              <video
+                ref={(el) => (remoteVideosRef.current[user.id] = el)}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-sm">
+                {user.username}
+              </div>
+            </div>
+          ))}
+          
+          {remoteUsers.length === 0 && (
+            <div className="col-span-full flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p>Waiting for others to join...</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Local Video (Picture-in-Picture) */}
+        <div className="absolute bottom-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-purple-500 shadow-xl">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs">
+            You ({username})
+          </div>
+          {!videoEnabled && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+              <VideoOff className="w-8 h-8 text-gray-500" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="glass border-t border-white/10 p-4 max-h-64 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Video Filters */}
+            <div>
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                Video Filters
+              </h4>
+              <div className="grid grid-cols-3 gap-2">
+                {videoFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => applyVideoFilter(filter)}
+                    className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                      activeFilter === filter.id
+                        ? 'bg-purple-500'
+                        : 'glass hover:bg-white/10'
+                    }`}
+                  >
+                    {filter.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Voice Filters */}
+            <div>
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <Mic className="w-4 h-4" />
+                Voice Filters
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                {voiceFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => applyVoiceFilter(filter)}
+                    className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                      activeVoiceFilter === filter.id
+                        ? 'bg-purple-500'
+                        : 'glass hover:bg-white/10'
+                    }`}
+                  >
+                    {filter.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="glass border-t border-white/10 px-4 py-4">
+        <div className="flex items-center justify-center gap-4">
+          {/* Toggle Video */}
+          <button
+            onClick={toggleVideo}
+            className={`p-4 rounded-full transition-all ${
+              videoEnabled
+                ? 'bg-gray-700 hover:bg-gray-600'
+                : 'bg-red-500 hover:bg-red-600'
+            }`}
+            title={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
+          >
+            {videoEnabled ? (
+              <Video className="w-6 h-6" />
+            ) : (
+              <VideoOff className="w-6 h-6" />
+            )}
+          </button>
+
+          {/* Toggle Audio */}
+          <button
+            onClick={toggleAudio}
+            className={`p-4 rounded-full transition-all ${
+              audioEnabled
+                ? 'bg-gray-700 hover:bg-gray-600'
+                : 'bg-red-500 hover:bg-red-600'
+            }`}
+            title={audioEnabled ? 'Mute microphone' : 'Unmute microphone'}
+          >
+            {audioEnabled ? (
+              <Mic className="w-6 h-6" />
+            ) : (
+              <MicOff className="w-6 h-6" />
+            )}
+          </button>
+
+          {/* End Call */}
+          <button
+            onClick={endCall}
+            className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-all"
+            title="End call"
+          >
+            <PhoneOff className="w-6 h-6" />
+          </button>
+
+          {/* Snapshot Button */}
+          <button
+            onClick={() => {
+              if (localVideoRef.current) {
+                const canvas = document.createElement('canvas')
+                const video = localVideoRef.current
+                canvas.width = video.videoWidth
+                canvas.height = video.videoHeight
+                const ctx = canvas.getContext('2d')
+                ctx.drawImage(video, 0, 0)
+                const imageData = canvas.toDataURL('image/jpeg', 0.8)
+                
+                // Send to chat
+                socket?.emit('snapshot-message', {
+                  roomCode,
+                  username,
+                  imageData,
+                  timestamp: Date.now()
+                })
+                toast.success('Snapshot captured!')
+              }
+            }}
+            className="p-4 rounded-full bg-purple-500 hover:bg-purple-600 transition-all"
+            title="Take snapshot"
+          >
+            <Camera className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

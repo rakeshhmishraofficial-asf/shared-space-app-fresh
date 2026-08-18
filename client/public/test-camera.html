@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera & Microphone Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #4a1a4a 50%, #1a1a2e 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .status.pending {
+            background: rgba(255, 193, 7, 0.2);
+            border: 2px solid #ffc107;
+        }
+        .status.success {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4caf50;
+        }
+        .status.error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 2px solid #f44336;
+        }
+        video {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border-radius: 10px;
+            margin: 20px auto;
+            display: block;
+            background: black;
+            transform: scaleX(-1);
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .info {
+            background: rgba(33, 150, 243, 0.2);
+            border: 2px solid #2196f3;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .info h3 {
+            margin-bottom: 10px;
+        }
+        .info ol {
+            margin-left: 20px;
+        }
+        .info li {
+            margin: 5px 0;
+        }
+        #deviceInfo {
+            font-size: 14px;
+            color: #ccc;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📹 Camera & Microphone Test</h1>
+        
+        <div id="status" class="status pending">
+            <h2>Click "Test Camera & Mic" to start</h2>
+        </div>
+
+        <button class="btn-primary" onclick="testMedia()">🎥 Test Camera & Microphone</button>
+        <button class="btn-secondary" onclick="stopMedia()">⏹️ Stop</button>
+
+        <video id="video" autoplay playsinline muted></video>
+
+        <div id="deviceInfo"></div>
+
+        <div class="info">
+            <h3>ℹ️ How to Allow Permissions:</h3>
+            <ol>
+                <li>Click the "Test Camera & Microphone" button above</li>
+                <li>Your browser will ask for permission</li>
+                <li>Click "Allow" or "Yes"</li>
+                <li>You should see yourself in the video above</li>
+            </ol>
+            <p style="margin-top: 15px;">
+                <strong>If you see a black screen:</strong> Your camera is blocked. 
+                Click the camera icon (🎥) in your browser's address bar and allow permissions.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const deviceInfo = document.getElementById('deviceInfo');
+
+        async function testMedia() {
+            try {
+                status.className = 'status pending';
+                status.innerHTML = '<h2>⏳ Requesting permissions...</h2>';
+
+                // Request camera and microphone
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    },
+                    audio: true
+                });
+
+                // Show video
+                video.srcObject = stream;
+
+                // Success!
+                status.className = 'status success';
+                status.innerHTML = '<h2>✅ Camera & Microphone Working!</h2><p>You should see yourself above</p>';
+
+                // Show device info
+                const videoTrack = stream.getVideoTracks()[0];
+                const audioTrack = stream.getAudioTracks()[0];
+                const settings = videoTrack.getSettings();
+                
+                deviceInfo.innerHTML = `
+                    <strong>Camera:</strong> ${videoTrack.label}<br>
+                    <strong>Microphone:</strong> ${audioTrack.label}<br>
+                    <strong>Resolution:</strong> ${settings.width}x${settings.height}<br>
+                    <strong>Status:</strong> Both devices are working correctly! ✅
+                `;
+
+            } catch (error) {
+                console.error('Error:', error);
+                
+                status.className = 'status error';
+                
+                let errorMessage = '<h2>❌ Permission Denied</h2>';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += '<p><strong>You blocked camera/microphone access!</strong></p>';
+                    errorMessage += '<p>To fix:</p>';
+                    errorMessage += '<ol style="text-align: left; margin: 10px auto; max-width: 400px;">';
+                    errorMessage += '<li>Click the camera icon (🎥) in address bar</li>';
+                    errorMessage += '<li>Select "Allow" for camera and microphone</li>';
+                    errorMessage += '<li>Refresh this page</li>';
+                    errorMessage += '<li>Click "Test Camera & Mic" again</li>';
+                    errorMessage += '</ol>';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += '<p>No camera or microphone found on your device!</p>';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += '<p>Camera is being used by another app. Close other apps and try again.</p>';
+                } else {
+                    errorMessage += `<p>Error: ${error.message}</p>`;
+                }
+                
+                status.innerHTML = errorMessage;
+                deviceInfo.innerHTML = '';
+            }
+        }
+
+        function stopMedia() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+                
+                status.className = 'status pending';
+                status.innerHTML = '<h2>Stopped</h2>';
+                deviceInfo.innerHTML = '';
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', stopMedia);
+    </script>
+</body>
+</html>

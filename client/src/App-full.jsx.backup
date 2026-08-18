@@ -1,0 +1,539 @@
+import { useState, useEffect } from 'react'
+import toast, { Toaster } from 'react-hot-toast'
+import Canvas from './components/Canvas'
+import TextBox from './components/TextBox'
+import ChatSidebar from './components/ChatSidebar'
+import CameraPreview from './components/CameraPreview'
+import VideoCall from './components/VideoCall'
+import AudioCall from './components/AudioCall'
+import CallNotification from './components/CallNotification'
+import InstallPrompt from './components/InstallPrompt'
+import PasswordPrompt from './components/PasswordPrompt'
+import Memories from './components/Memories'
+import { useSocket } from './hooks/useSocket'
+import { MessageCircle, Users, Video, Download, Camera as CameraIcon } from 'lucide-react'
+
+function App() {
+  console.log('🚀 App rendering')
+  
+  const [roomCode, setRoomCode] = useState('')
+  const [joined, setJoined] = useState(false)
+  const [currentRoom, setCurrentRoom] = useState('')
+  const [textBoxes, setTextBoxes] = useState([])
+  const [showCanvas, setShowCanvas] = useState(true)
+  const [showChat, setShowChat] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [username, setUsername] = useState('')
+  const [showVideoCall, setShowVideoCall] = useState(false)
+  const [showAudioCall, setShowAudioCall] = useState(false)
+  const [incomingCall, setIncomingCall] = useState(null) // { callerName, callType }
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [showInstallButton, setShowInstallButton] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showMemories, setShowMemories] = useState(false)
+  
+  const { socket, connected } = useSocket(joined ? currentRoom : null)
+
+  console.log('🔐 isAuthenticated:', isAuthenticated)
+
+  // Check authentication on mount
+  useEffect(() => {
+    try {
+      console.log('🔍 Checking auth...')
+      const auth = localStorage.getItem('app_authenticated')
+      const authTime = localStorage.getItem('auth_time')
+      
+      console.log('Auth values:', { auth, authTime })
+      
+      if (auth === 'true' && authTime) {
+        // Check if auth is still valid (within 24 hours)
+        const timeDiff = Date.now() - parseInt(authTime)
+        if (timeDiff < 24 * 60 * 60 * 1000) {
+          console.log('✅ Auth valid')
+          setIsAuthenticated(true)
+        } else {
+          console.log('⏰ Auth expired')
+          localStorage.removeItem('app_authenticated')
+          localStorage.removeItem('auth_time')
+        }
+      } else {
+        console.log('❌ No auth')
+      }
+    } catch (error) {
+      console.error('Auth check error:', error)
+    }
+  }, [])
+
+  // Restore session from localStorage
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const savedSession = localStorage.getItem('room_session')
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession)
+        if (session.roomCode && session.username) {
+          setRoomCode(session.roomCode)
+          setCurrentRoom(session.roomCode)
+          setUsername(session.username)
+          setJoined(true)
+          toast.success('Session restored!')
+        }
+      } catch (error) {
+        console.error('Failed to restore session:', error)
+      }
+    }
+  }, [isAuthenticated])
+
+  // Save session to localStorage whenever room state changes
+  useEffect(() => {
+    if (joined && currentRoom && username) {
+      const session = {
+        roomCode: currentRoom,
+        username: username,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('room_session', JSON.stringify(session))
+    }
+  }, [joined, currentRoom, username])
+
+  useEffect(() => {
+    if (!socket) return
+
+    socket.on('room-state', (state) => {
+      setActiveUsers(state.users?.length || 0)
+    })
+
+    socket.on('user-joined', () => {
+      setActiveUsers(prev => prev + 1)
+    })
+
+    socket.on('user-left', () => {
+      setActiveUsers(prev => Math.max(0, prev - 1))
+    })
+
+    // Listen for incoming calls
+    socket.on('incoming-video-call', ({ callerName }) => {
+      setIncomingCall({ callerName, callType: 'video' })
+      toast('Incoming video call from ' + callerName)
+    })
+
+    socket.on('incoming-audio-call', ({ callerName }) => {
+      setIncomingCall({ callerName, callType: 'audio' })
+      toast('Incoming audio call from ' + callerName)
+    })
+
+    return () => {
+      socket.off('room-state')
+      socket.off('user-joined')
+      socket.off('user-left')
+      socket.off('incoming-video-call')
+      socket.off('incoming-audio-call')
+    }
+  }, [socket])
+
+  // PWA Install prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstallButton(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) {
+      toast('To install on iPhone:\n1. Tap Share\n2. Add to Home Screen')
+      return
+    }
+
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    
+    if (outcome === 'accepted') {
+      toast.success('App installed!')
+      setShowInstallButton(false)
+    }
+    
+    setDeferredPrompt(null)
+  }
+
+  const handleJoinRoom = () => {
+    if (!roomCode.trim()) {
+      toast.error('Please enter a room code')
+      return
+    }
+    if (!username.trim()) {
+      toast.error('Please enter your name')
+      return
+    }
+    setCurrentRoom(roomCode)
+    setJoined(true)
+    toast.success(`Joined room: ${roomCode}`)
+  }
+
+  const handleCreateRoom = () => {
+    if (!username.trim()) {
+      toast.error('Please enter your name first')
+      return
+    }
+    const newCode = 'RS16' + Math.random().toString(36).substring(2, 6).toUpperCase()
+    setRoomCode(newCode)
+    setCurrentRoom(newCode)
+    setJoined(true)
+    toast.success(`Created room: ${newCode}`)
+  }
+
+  const handleLeaveRoom = () => {
+    setJoined(false)
+    setCurrentRoom('')
+    setRoomCode('')
+    setTextBoxes([])
+    setShowCamera(false)
+    localStorage.removeItem('room_session')
+    toast('Left the room')
+  }
+
+  const handleSnapCapture = (imageData, capturedBy) => {
+    // Send snapshot to chat via socket
+    if (socket) {
+      socket.emit('snapshot-message', {
+        roomCode: currentRoom,
+        username: capturedBy,
+        imageData,
+        timestamp: Date.now()
+      })
+    }
+  }
+
+  const handleGroupSnap = () => {
+    // Request all users in the room to capture their photos
+    if (socket) {
+      socket.emit('snap-request', { roomCode: currentRoom })
+      toast.success('📸 Group snap requested! Capturing all cameras...')
+    }
+  }
+
+  const addTextBox = () => {
+    const newBox = {
+      id: Date.now(),
+      text: ''
+    }
+    setTextBoxes([...textBoxes, newBox])
+    toast.success('Text box added')
+  }
+
+  const deleteTextBox = (id) => {
+    setTextBoxes(textBoxes.filter(box => box.id !== id))
+    toast('Text box deleted')
+  }
+
+  // Password check
+  console.log('📍 Render decision - isAuthenticated:', isAuthenticated)
+  
+  if (!isAuthenticated) {
+    console.log('🔒 Showing password prompt')
+    try {
+      return <PasswordPrompt onCorrectPassword={() => {
+        console.log('✅ Password correct!')
+        setIsAuthenticated(true)
+      }} />
+    } catch (error) {
+      console.error('PasswordPrompt error:', error)
+      return <div style={{ color: 'white', padding: '20px' }}>Error loading password prompt: {error.message}</div>
+    }
+  }
+
+  console.log('🏠 Showing main app - joined:', joined)
+
+  if (joined) {
+    return (
+      <>
+        <Toaster position="top-center" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+          {/* Header */}
+          <div className="glass border-b border-white/10 px-4 md:px-6 py-3 md:py-4">
+            <div className={`mx-auto flex items-center justify-between flex-wrap gap-2 ${showChat ? 'max-w-full pr-0 md:pr-80' : 'max-w-7xl'}`}>
+              <div className="flex-shrink-0">
+                <h1 className="text-lg md:text-2xl font-bold">Shared Space</h1>
+                <p className="text-xs md:text-sm text-gray-400">
+                  Room: <span className="font-mono font-bold text-purple-400">{currentRoom}</span>
+                </p>
+              </div>
+              <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+                {/* Active Users Counter */}
+                <div className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1 md:py-2 glass rounded-lg text-sm md:text-base">
+                  <Users className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
+                  <span className="font-semibold">{activeUsers}</span>
+                  <span className="hidden md:inline text-sm text-gray-400">Active</span>
+                </div>
+
+                {/* Connection Status */}
+                <div className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm ${connected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                  <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                  <span className="hidden md:inline">{connected ? 'Connected' : 'Disconnected'}</span>
+                </div>
+
+                {/* Camera Toggle */}
+                <button
+                  onClick={() => setShowCamera(!showCamera)}
+                  className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm md:text-base ${
+                    showCamera ? 'bg-green-500 hover:bg-green-600' : 'glass hover:bg-white/10'
+                  }`}
+                >
+                  <Video className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden md:inline">Camera</span>
+                </button>
+
+                {/* Chat Toggle */}
+                <button
+                  onClick={() => setShowChat(!showChat)}
+                  className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm md:text-base ${
+                    showChat ? 'bg-purple-500 hover:bg-purple-600' : 'glass hover:bg-white/10'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden md:inline">Chat</span>
+                </button>
+
+                {/* Install App Button */}
+                {showInstallButton && (
+                  <button
+                    onClick={handleInstallApp}
+                    className="px-3 md:px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm md:text-base"
+                    title="Install app on home screen"
+                  >
+                    <Download className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="hidden md:inline">Install</span>
+                  </button>
+                )}
+
+                {/* Memories Button */}
+                <button
+                  onClick={() => setShowMemories(true)}
+                  className="px-3 md:px-4 py-2 glass hover:bg-white/10 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm md:text-base"
+                  title="View memories"
+                >
+                  <CameraIcon className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden md:inline">Memories</span>
+                </button>
+
+                <button
+                  onClick={() => setShowCanvas(!showCanvas)}
+                  className="px-3 md:px-4 py-2 glass hover:bg-white/10 rounded-lg font-semibold transition-all text-sm md:text-base"
+                >
+                  {showCanvas ? '📝' : '🎨'}
+                  <span className="hidden md:inline ml-1">{showCanvas ? 'Text' : 'Canvas'}</span>
+                </button>
+                
+                {!showCanvas && (
+                  <button
+                    onClick={addTextBox}
+                    className="px-3 md:px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg font-semibold transition-all text-sm md:text-base"
+                  >
+                    <span className="md:hidden">+</span>
+                    <span className="hidden md:inline">+ Add Box</span>
+                  </button>
+                )}
+                
+                <button
+                  onClick={handleLeaveRoom}
+                  className="px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg font-semibold transition-all text-sm md:text-base"
+                >
+                  <span className="md:hidden">✕</span>
+                  <span className="hidden md:inline">Leave</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className={`h-[calc(100vh-73px)] ${showChat ? 'pr-0 md:pr-80' : ''}`}>
+            <div className="h-full flex flex-col md:flex-row gap-4 p-4">
+              {/* Camera Section */}
+              {showCamera && (
+                <div className="w-full md:w-80 flex-shrink-0">
+                  <CameraPreview
+                    socket={socket}
+                    roomCode={currentRoom}
+                    username={username}
+                    onSnapCapture={handleSnapCapture}
+                    onGroupSnap={handleGroupSnap}
+                  />
+                </div>
+              )}
+
+              {/* Canvas/Text Section */}
+              <div className="flex-1 min-h-0">
+                {showCanvas ? (
+                  <Canvas socket={socket} roomCode={currentRoom} />
+                ) : (
+                  <div className="max-w-4xl mx-auto h-full overflow-y-auto">
+                    <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Text Boxes</h2>
+                    {textBoxes.length === 0 ? (
+                      <div className="glass rounded-xl p-8 md:p-12 text-center">
+                        <p className="text-gray-400 mb-4">No text boxes yet</p>
+                        <button
+                          onClick={addTextBox}
+                          className="px-6 py-3 bg-purple-500 hover:bg-purple-600 rounded-lg font-semibold transition-all"
+                        >
+                          + Add Your First Text Box
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {textBoxes.map(box => (
+                          <TextBox
+                            key={box.id}
+                            id={box.id}
+                            initialText={box.text}
+                            onDelete={() => deleteTextBox(box.id)}
+                            socket={socket}
+                            roomCode={currentRoom}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Sidebar */}
+          <ChatSidebar
+            socket={socket}
+            roomCode={currentRoom}
+            username={username}
+            isOpen={showChat}
+            onClose={() => setShowChat(false)}
+            onVideoCall={() => {
+              // Notify others about incoming call
+              socket?.emit('initiate-video-call', { roomCode: currentRoom, callerName: username })
+              setShowVideoCall(true)
+              toast.success('Starting video call...')
+            }}
+            onAudioCall={() => {
+              // Notify others about incoming call
+              socket?.emit('initiate-audio-call', { roomCode: currentRoom, callerName: username })
+              setShowAudioCall(true)
+              toast.success('Starting audio call...')
+            }}
+          />
+
+          {/* Video Call */}
+          <VideoCall
+            socket={socket}
+            roomCode={currentRoom}
+            username={username}
+            isOpen={showVideoCall}
+            onClose={() => setShowVideoCall(false)}
+          />
+
+          {/* Audio Call */}
+          <AudioCall
+            socket={socket}
+            roomCode={currentRoom}
+            username={username}
+            isOpen={showAudioCall}
+            onClose={() => setShowAudioCall(false)}
+          />
+
+          {/* Call Notification */}
+          <CallNotification
+            isVisible={!!incomingCall}
+            callerName={incomingCall?.callerName || ''}
+            callType={incomingCall?.callType || 'video'}
+            onAccept={() => {
+              if (incomingCall?.callType === 'video') {
+                setShowVideoCall(true)
+              } else {
+                setShowAudioCall(true)
+              }
+              setIncomingCall(null)
+              toast.success('Call accepted!')
+            }}
+            onReject={() => {
+              setIncomingCall(null)
+              toast('Call rejected')
+            }}
+          />
+
+          {/* Install Prompt */}
+          <InstallPrompt />
+
+          {/* Memories */}
+          <Memories
+            socket={socket}
+            roomCode={currentRoom}
+            isOpen={showMemories}
+            onClose={() => setShowMemories(false)}
+          />
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Toaster position="top-center" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-4">
+        <div className="glass rounded-3xl p-12 max-w-md w-full">
+          <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            Shared Space
+          </h1>
+          <p className="text-center text-gray-400 mb-8">
+            Real-time collaboration platform
+          </p>
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Enter your name"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              maxLength={20}
+            />
+            <input
+              type="text"
+              placeholder="Enter room code"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
+            />
+            <button 
+              onClick={handleJoinRoom}
+              className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 py-3 rounded-xl font-semibold transition-all"
+            >
+              Join Room
+            </button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-gray-900 text-gray-400">or</span>
+              </div>
+            </div>
+            <button 
+              onClick={handleCreateRoom}
+              className="w-full glass py-3 rounded-xl font-semibold hover:bg-white/10 transition-all"
+            >
+              Create New Room
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default App

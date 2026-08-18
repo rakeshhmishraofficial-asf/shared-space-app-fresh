@@ -1,0 +1,1 @@
+Never ever try to make documentations without user asking for it.

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#a855f7" />
+    <meta name="description" content="Real-time collaboration with drawing, chat, video calls, and more" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Shared Space" />
+    <!-- Force cache refresh -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="manifest" href="/manifest.json?v=3" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=3" />
+    <link rel="apple-touch-icon" href="/icon-192.svg?v=3" />
+    <title>Shared Space - Real-time Collaboration</title>
+    <style>
+      /* Prevent white screen flash */
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #0a0a0f;
+        color: white;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      /* Loading fallback */
+      .loading-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1a1a2e 0%, #4a1a4a 50%, #1a1a2e 100%);
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading-fallback">
+        <div style="text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🎨</div>
+          <div style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Shared Space</div>
+          <div style="font-size: 14px; color: #999;">Loading...</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

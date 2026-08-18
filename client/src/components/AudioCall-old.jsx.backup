@@ -1,0 +1,308 @@
+import { useEffect, useRef, useState } from 'react'
+import { Phone, PhoneOff, Mic, MicOff, Users, Volume2, VolumeX, Sparkles } from 'lucide-react'
+import toast from 'react-hot-toast'
+
+export default function AudioCall({ socket, roomCode, username, isOpen, onClose }) {
+  const [localStream, setLocalStream] = useState(null)
+  const [audioEnabled, setAudioEnabled] = useState(true)
+  const [speakerEnabled, setSpeakerEnabled] = useState(true)
+  const [participants, setParticipants] = useState([])
+  const [showVoiceFilters, setShowVoiceFilters] = useState(false)
+  const [activeVoiceFilter, setActiveVoiceFilter] = useState('none')
+  const audioContextRef = useRef(null)
+  const sourceNodeRef = useRef(null)
+  const gainNodeRef = useRef(null)
+
+  // Celebrity and character voice presets
+  const voiceFilters = [
+    { id: 'none', name: '🎤 Normal Voice', pitch: 1.0, formant: 1.0, reverb: 0 },
+    
+    // Male Voices
+    { id: 'arijit', name: '🎵 Arijit Singh', pitch: 0.92, formant: 0.95, reverb: 0.3 },
+    { id: 'male-deep', name: '🎙️ Deep Male', pitch: 0.75, formant: 0.85, reverb: 0.1 },
+    { id: 'male-normal', name: '👨 Normal Male', pitch: 0.88, formant: 0.92, reverb: 0 },
+    { id: 'male-young', name: '🧑 Young Male', pitch: 1.05, formant: 1.0, reverb: 0 },
+    { id: 'amitabh', name: '🎬 Amitabh Style', pitch: 0.80, formant: 0.88, reverb: 0.2 },
+    { id: 'srk', name: '⭐ SRK Style', pitch: 0.95, formant: 0.98, reverb: 0.15 },
+    
+    // Female Voices
+    { id: 'female-high', name: '👩 High Female', pitch: 1.45, formant: 1.25, reverb: 0.1 },
+    { id: 'female-normal', name: '👱‍♀️ Normal Female', pitch: 1.28, formant: 1.15, reverb: 0 },
+    { id: 'actress-sweet', name: '🌟 Sweet Actress', pitch: 1.35, formant: 1.20, reverb: 0.2 },
+    { id: 'actress-bold', name: '💃 Bold Actress', pitch: 1.22, formant: 1.12, reverb: 0.15 },
+    { id: 'shreya', name: '🎶 Shreya Style', pitch: 1.38, formant: 1.22, reverb: 0.25 },
+    
+    // Character Voices
+    { id: 'child', name: '👶 Child Voice', pitch: 1.75, formant: 1.4, reverb: 0 },
+    { id: 'elderly', name: '👴 Elderly', pitch: 0.85, formant: 0.90, reverb: 0.1 },
+    { id: 'robot', name: '🤖 Robot', pitch: 0.60, formant: 0.70, reverb: 0.4 },
+    { id: 'alien', name: '👽 Alien', pitch: 1.85, formant: 1.5, reverb: 0.5 },
+    { id: 'monster', name: '👹 Monster', pitch: 0.45, formant: 0.60, reverb: 0.3 },
+    { id: 'chipmunk', name: '🐿️ Chipmunk', pitch: 2.0, formant: 1.6, reverb: 0 },
+    { id: 'darth', name: '😈 Darth Vader', pitch: 0.55, formant: 0.65, reverb: 0.6 },
+    { id: 'echo', name: '🔊 Echo Effect', pitch: 1.0, formant: 1.0, reverb: 0.8 },
+  ]
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    startAudioCall()
+
+    return () => {
+      stopAudioCall()
+    }
+  }, [isOpen])
+
+  const startAudioCall = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      })
+
+      setLocalStream(stream)
+      
+      // Initialize Web Audio API for voice effects
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      
+      socket?.emit('join-audio-call', { roomCode, username })
+      toast.success('Joined audio call!')
+    } catch (error) {
+      console.error('Error accessing microphone:', error)
+      toast.error('Could not access microphone')
+    }
+  }
+
+  const stopAudioCall = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop())
+      setLocalStream(null)
+    }
+
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+    }
+
+    socket?.emit('leave-audio-call', { roomCode, username })
+  }
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0]
+      audioTrack.enabled = !audioTrack.enabled
+      setAudioEnabled(audioTrack.enabled)
+      toast(audioTrack.enabled ? 'Mic enabled' : 'Mic muted')
+    }
+  }
+
+  const toggleSpeaker = () => {
+    setSpeakerEnabled(!speakerEnabled)
+    toast(speakerEnabled ? 'Speaker muted' : 'Speaker enabled')
+  }
+
+  const applyVoiceFilter = (filter) => {
+    setActiveVoiceFilter(filter.id)
+    
+    if (!localStream || !audioContextRef.current) return
+
+    try {
+      // Clean up previous nodes
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.disconnect()
+      }
+      if (gainNodeRef.current) {
+        gainNodeRef.current.disconnect()
+      }
+
+      const audioContext = audioContextRef.current
+      const source = audioContext.createMediaStreamSource(localStream)
+      
+      // Create audio processing chain
+      const gainNode = audioContext.createGain()
+      const biquadFilter = audioContext.createBiquadFilter()
+      const convolver = audioContext.createConvolver()
+      
+      // Apply pitch shift (simplified - real pitch shifting is complex)
+      gainNode.gain.value = filter.pitch
+      
+      // Apply formant shift (frequency adjustment)
+      biquadFilter.type = 'bandpass'
+      biquadFilter.frequency.value = 1000 * filter.formant
+      biquadFilter.Q.value = 1
+      
+      // Apply reverb if needed
+      if (filter.reverb > 0) {
+        // Create impulse response for reverb
+        const sampleRate = audioContext.sampleRate
+        const length = sampleRate * filter.reverb
+        const impulse = audioContext.createBuffer(2, length, sampleRate)
+        
+        for (let channel = 0; channel < 2; channel++) {
+          const channelData = impulse.getChannelData(channel)
+          for (let i = 0; i < length; i++) {
+            channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2)
+          }
+        }
+        
+        convolver.buffer = impulse
+        source.connect(biquadFilter)
+        biquadFilter.connect(gainNode)
+        gainNode.connect(convolver)
+        convolver.connect(audioContext.destination)
+      } else {
+        source.connect(biquadFilter)
+        biquadFilter.connect(gainNode)
+        gainNode.connect(audioContext.destination)
+      }
+      
+      sourceNodeRef.current = source
+      gainNodeRef.current = gainNode
+      
+      toast.success(`🎤 Voice: ${filter.name}`)
+    } catch (error) {
+      console.error('Error applying voice filter:', error)
+      toast.error('Could not apply voice filter')
+    }
+  }
+
+  const endCall = () => {
+    stopAudioCall()
+    onClose()
+    toast('Call ended')
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-gray-900 to-black z-50 flex items-center justify-center">
+      <div className="w-full max-w-2xl mx-4">
+        {/* Call Info Card */}
+        <div className="glass rounded-3xl p-8 text-center">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center animate-pulse">
+              <Phone className="w-12 h-12" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Audio Call</h2>
+            <p className="text-gray-400">Room: {roomCode}</p>
+          </div>
+
+          {/* Participants */}
+          <div className="mb-8">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-purple-400" />
+              <span className="font-semibold">{participants.length + 1} in call</span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              <div className="px-4 py-2 bg-purple-500/20 rounded-full text-sm">
+                {username} (You)
+              </div>
+              {participants.map((p, i) => (
+                <div key={i} className="px-4 py-2 bg-white/10 rounded-full text-sm">
+                  {p.username}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Active Voice Filter */}
+          {activeVoiceFilter !== 'none' && (
+            <div className="mb-6 px-4 py-3 bg-purple-500/20 rounded-xl">
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <span className="font-semibold">
+                  {voiceFilters.find(f => f.id === activeVoiceFilter)?.name}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Voice Filters Toggle */}
+          <button
+            onClick={() => setShowVoiceFilters(!showVoiceFilters)}
+            className="w-full mb-6 px-6 py-3 glass hover:bg-white/10 rounded-xl transition-all flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-5 h-5" />
+            <span>{showVoiceFilters ? 'Hide' : 'Show'} Voice Filters</span>
+          </button>
+
+          {/* Voice Filters Grid */}
+          {showVoiceFilters && (
+            <div className="mb-6 max-h-64 overflow-y-auto glass rounded-xl p-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {voiceFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => applyVoiceFilter(filter)}
+                    className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                      activeVoiceFilter === filter.id
+                        ? 'bg-purple-500'
+                        : 'bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    {filter.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-4">
+            {/* Toggle Microphone */}
+            <button
+              onClick={toggleAudio}
+              className={`p-6 rounded-full transition-all ${
+                audioEnabled
+                  ? 'bg-gray-700 hover:bg-gray-600'
+                  : 'bg-red-500 hover:bg-red-600'
+              }`}
+              title={audioEnabled ? 'Mute microphone' : 'Unmute microphone'}
+            >
+              {audioEnabled ? (
+                <Mic className="w-8 h-8" />
+              ) : (
+                <MicOff className="w-8 h-8" />
+              )}
+            </button>
+
+            {/* Toggle Speaker */}
+            <button
+              onClick={toggleSpeaker}
+              className={`p-6 rounded-full transition-all ${
+                speakerEnabled
+                  ? 'bg-gray-700 hover:bg-gray-600'
+                  : 'bg-red-500 hover:bg-red-600'
+              }`}
+              title={speakerEnabled ? 'Mute speaker' : 'Unmute speaker'}
+            >
+              {speakerEnabled ? (
+                <Volume2 className="w-8 h-8" />
+              ) : (
+                <VolumeX className="w-8 h-8" />
+              )}
+            </button>
+
+            {/* End Call */}
+            <button
+              onClick={endCall}
+              className="p-6 rounded-full bg-red-500 hover:bg-red-600 transition-all"
+              title="End call"
+            >
+              <PhoneOff className="w-8 h-8" />
+            </button>
+          </div>
+
+          {/* Call Duration */}
+          <div className="mt-6 text-sm text-gray-400">
+            <p>Call in progress...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
