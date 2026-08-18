@@ -9,7 +9,7 @@ import ChaosToolbar from './components/ChaosToolbar'
 import PositionGifModal, { renderPositionDiagramSvg } from './components/PositionGifModal'
 import CoupleGamesModal from './components/CoupleGamesModal'
 import { useSocket } from './hooks/useSocket'
-import { MessageCircle, Video, Share2, Users, Lock, Globe, Flame, Radio, Menu, X, Volume2, EyeOff, Camera, SlidersHorizontal, Dices, Download, Heart } from 'lucide-react'
+import { MessageCircle, Video, Share2, Users, Lock, Globe, Flame, Radio, Menu, X, Volume2, EyeOff, Camera, SlidersHorizontal, Dices, Download, Heart, Phone } from 'lucide-react'
 
 function App() {
   console.log('🚀 App rendering')
@@ -423,7 +423,15 @@ function App() {
                 className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-black flex items-center gap-1.5 shadow-lg transition-all border border-red-400/40"
               >
                 <Video className="w-3.5 h-3.5" />
-                <span>Call 🎙️</span>
+                <span className="hidden xs:inline">Video</span>
+              </button>
+
+              <button
+                onClick={() => handleStartCall('audio')}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-lg transition-all border border-green-400/40"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Call</span>
               </button>
 
               <button
