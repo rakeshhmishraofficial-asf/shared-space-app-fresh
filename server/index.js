@@ -182,9 +182,26 @@ io.on('connection', (socket) => {
     socket.to(roomCode).emit('call:incoming', { callerName, callType });
   });
 
+  socket.on('call:accept', ({ roomCode }) => {
+    socket.to(roomCode).emit('call:accepted');
+  });
+
   socket.on('call:reject', ({ roomCode, username }) => {
     logger.room('Call rejected', { roomCode, username });
     socket.to(roomCode).emit('call:rejected', { username });
+  });
+
+  // WebRTC Signaling relay (offer / answer / ICE candidates)
+  socket.on('webrtc:offer', ({ roomCode, offer }) => {
+    socket.to(roomCode).emit('webrtc:offer', { offer });
+  });
+
+  socket.on('webrtc:answer', ({ roomCode, answer }) => {
+    socket.to(roomCode).emit('webrtc:answer', { answer });
+  });
+
+  socket.on('webrtc:ice-candidate', ({ roomCode, candidate }) => {
+    socket.to(roomCode).emit('webrtc:ice-candidate', { candidate });
   });
 
   // Memories
@@ -389,9 +406,10 @@ io.on('connection', (socket) => {
   });
 
   // Room-wide Position GIF Trigger
-  socket.on('position:gif', ({ roomCode, username, gifUrl, title }) => {
-    logger.chat('Position GIF broadcast', { roomCode, username, title });
-    io.to(roomCode).emit('position:gif', { username, gifUrl, title });
+  socket.on('position:gif', ({ roomCode, username, id, gifUrl, title }) => {
+    logger.chat('Position GIF broadcast', { roomCode, username, title, id });
+    // Broadcast to ALL in room including sender so both phones see the overlay
+    io.to(roomCode).emit('position:gif', { username, id, gifUrl, title });
   });
 
   // Draw Notice Event

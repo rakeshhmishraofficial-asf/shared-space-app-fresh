@@ -338,7 +338,8 @@ function App() {
   }
 
   const handleSelectPosition = (id, title) => {
-    triggerPositionBroadcast({ svgId: id, title, username });
+    // Only emit to server - server broadcasts back to ALL in room (including sender)
+    // This ensures BOTH phones see the overlay via the same socket event path
     if (socket && currentRoom) {
       socket.emit('position:gif', { roomCode: currentRoom, username, id, title });
     }
@@ -784,6 +785,7 @@ function App() {
         <LiveKitCall
           roomCode={currentRoom}
           username={username}
+          socket={socket}
           callType={callType}
           onClose={() => setShowLiveKitCall(false)}
           onOpenChat={() => setShowChat(true)}
