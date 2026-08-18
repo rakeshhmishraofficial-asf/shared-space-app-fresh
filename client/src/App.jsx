@@ -642,8 +642,8 @@ function App() {
         <main className="flex-1 relative flex overflow-hidden">
           {/* Main Canvas Area */}
           <div className="flex-1 relative flex flex-col">
-            {/* Top Chaos Bar + Active Room Member Count */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-full px-2 overflow-x-auto">
+            {/* Top Active Room Member Count */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-full px-2">
               <div className="px-3.5 py-2 bg-black/90 backdrop-blur-2xl border border-purple-500/60 rounded-2xl shadow-[0_0_25px_rgba(168,85,247,0.5)] text-xs font-black text-purple-300 flex items-center gap-2 whitespace-nowrap">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
                 <span className="font-mono text-purple-200">ROOM: {currentRoom}</span>
@@ -652,11 +652,13 @@ function App() {
                   <span>🍑 IN ROOM</span>
                 </span>
               </div>
+            </div>
+
+            {/* Right Side Vertical Floating Icon Toolbar (SFX & Positions Only) */}
+            <div className="fixed right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-3">
               <ChaosToolbar
                 onOpenPositionsModal={() => setShowPositionsModal(true)}
                 onTriggerSoundboard={() => setShowSoundboard(true)}
-                onTriggerCanvasBomb={handleTriggerCanvasBomb}
-                onGhostSnap={handleGhostSnap}
               />
             </div>
 
