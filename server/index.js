@@ -416,14 +416,36 @@ io.on('connection', (socket) => {
   });
 });
 
+// Uncaught Exception & Promise Rejection Safeguards (Prevents Render Process Crashes)
+process.on('uncaughtException', (err) => {
+  console.error('🛡️ Process Uncaught Exception Guard:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('🛡️ Process Unhandled Rejection Guard:', reason);
+});
+
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
     return next();
   }
-  res.sendFile(path.join(clientDistPath, 'index.html'));
+  const indexPath = path.join(clientDistPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).send('<!DOCTYPE html><html><head><meta http-equiv="refresh" content="3"></head><body><h2>Loading Shared Space...</h2></body></html>');
+  }
 });
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   logger.success('SERVER', `Server running on port ${PORT}`, { port: PORT });
+  
+  // Render Free Tier Keep-Alive Pinger (Pings every 45s to prevent Render sleep)
+  const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  setInterval(() => {
+    try {
+      fetch(`${selfUrl}/health`).catch(() => {});
+    } catch (e) {}
+  }, 45000);
 });
