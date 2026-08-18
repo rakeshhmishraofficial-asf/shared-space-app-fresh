@@ -5,11 +5,11 @@ import toast from 'react-hot-toast';
 // Exactly 100 Unique Sex Positions Database
 export const POSITIONS_LIST = Array.from({ length: 100 }, (_, i) => {
   const baseCategories = [
-    'Missionary Embrace', 'Doggy Style Rear Entry', 'Cowgirl Riding', 'Reverse Cowgirl Riding',
-    'Spooning Side Intimacy', 'Standing Lap Lift', '69 Oral Symmetry', 'Lotus Seated Embrace',
-    'Standing Rear Table Entry', 'Pretzel Side Lock', 'Bridge Deep Arch', 'Chair Lap Embrace',
-    'Anvil Leg Press', 'Seated Countertop', 'Waterfall Bed Slope', 'Crab Angle Press',
-    'Eagle Spread Thrust', 'Wheelbarrow Lift', 'Twister Angle Entry', 'Kneeling Bow Arch'
+    'Missionary Intimate Sketch', 'Doggy Rear Entry Sketch', 'Cowgirl Riding Sketch', 'Reverse Cowgirl Sketch',
+    'Spooning Side Sketch', 'Standing Lap Lift Sketch', '69 Oral Symmetry Sketch', 'Lotus Seated Sketch',
+    'Standing Rear Table Sketch', 'Pretzel Side Lock Sketch', 'Bridge Deep Arch Sketch', 'Chair Lap Embrace Sketch',
+    'Anvil Leg Press Sketch', 'Seated Countertop Sketch', 'Waterfall Slope Sketch', 'Crab Angle Press Sketch',
+    'Eagle Spread Thrust Sketch', 'Wheelbarrow Lift Sketch', 'Twister Angle Sketch', 'Kneeling Bow Sketch'
   ];
 
   const modifiers = ['Classic 💋', 'Deep Thrust 💥', 'Wild Intimacy 🔥', 'Extreme Arch 🏹', 'Tight Embrace 🫂'];
@@ -26,157 +26,184 @@ export const POSITIONS_LIST = Array.from({ length: 100 }, (_, i) => {
   };
 });
 
-// Render REALISTIC Intimate Couple Vector Diagrams (Filled Anatomical Curves)
+// Render REALISTIC HAND-DRAWN SKETCH ART INTIMATE COUPLE DIAGRAMS
 export const renderPositionDiagramSvg = (id, title = '') => {
   const posType = (id - 1) % 10;
 
   return (
-    <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" className="w-full h-full bg-[#080312]">
-      <rect width="340" height="200" fill="#080312" rx="16" />
+    <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" className="w-full h-full bg-[#070210]">
+      <rect width="340" height="200" fill="#070210" rx="16" />
       
-      {/* Intimate Atmosphere Glow */}
-      <circle cx="170" cy="100" r="85" fill="#ec4899" opacity="0.15" />
-      <circle cx="170" cy="100" r="70" fill="none" stroke="#ec4899" strokeWidth="1.5" strokeDasharray="6 6" opacity="0.4" />
+      <defs>
+        {/* Female Sketch Gradient */}
+        <linearGradient id={`femaleGrad_${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f43f5e" />
+          <stop offset="50%" stopColor="#ec4899" />
+          <stop offset="100%" stopColor="#be185d" />
+        </linearGradient>
 
-      {/* Realistic Detailed Anatomical Couple Shapes (Female: Pink #ec4899, Male: Cyan #06b6d4) */}
-      <g transform="translate(10, 5)">
+        {/* Male Sketch Gradient */}
+        <linearGradient id={`maleGrad_${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="50%" stopColor="#06b6d4" />
+          <stop offset="100%" stopColor="#4338ca" />
+        </linearGradient>
+
+        {/* Sketch Glow Filter */}
+        <filter id={`sketchGlow_${id}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      {/* Background Artist Canvas Grid Lines */}
+      <circle cx="170" cy="100" r="85" fill="#3b0764" opacity="0.2" />
+      <path d="M 30 100 L 310 100 M 170 20 L 170 180" stroke="#a855f7" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3" />
+
+      {/* Realistic Sketch Art Couple Silhouettes */}
+      <g transform="translate(10, 5)" filter={`url(#sketchGlow_${id})`}>
         {posType === 0 && (
-          /* 1. Missionary Embrace: Female on back, legs bent up, Male over her in tight embrace */
+          /* 1. Missionary Sketch: Real anatomical torso curves, arched spine, bent knees */
           <g>
-            {/* Female Figure (Hot Pink) */}
-            <circle cx="75" cy="120" r="13" fill="#ec4899" />
-            <path d="M 75 133 C 95 135 125 135 155 135 C 175 110 185 85 165 75 C 145 75 140 100 135 135 L 210 135" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            <circle cx="175" cy="75" r="9" fill="#f43f5e" />
+            {/* Female Sketch (Pink/Rose) */}
+            <path d="M 60 120 Q 80 140 120 140 Q 150 140 170 110 Q 185 85 165 75 C 145 75 140 105 130 140 L 210 140 Q 190 120 160 120" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" strokeDasharray="12 1" />
+            <circle cx="70" cy="115" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 170 75 Q 190 65 200 85" stroke="#ffffff" strokeWidth="3" fill="none" />
 
-            {/* Male Figure (Cyan / Purple) */}
-            <circle cx="70" cy="80" r="13" fill="#06b6d4" />
-            <path d="M 70 93 C 110 65 150 90 185 130 C 170 145 140 140 120 120" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            <path d="M 95 95 L 140 115" stroke="#38bdf8" strokeWidth="12" strokeLinecap="round" fill="none" />
+            {/* Male Sketch (Cyan/Purple) */}
+            <path d="M 55 80 Q 95 60 140 90 Q 170 120 190 135 Q 165 145 135 125 C 110 105 85 90 55 80 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="65" cy="75" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 95 90 Q 125 110 145 120" stroke="#ffffff" strokeWidth="2.5" fill="none" />
           </g>
         )}
 
         {posType === 1 && (
-          /* 2. Doggy Style Rear Entry: Female kneeling on all fours arched, Male kneeling behind holding waist */
+          /* 2. Doggy Style Sketch: Female arched on all fours, Male standing behind with hands on waist */
           <g>
-            {/* Female Figure (Hot Pink) */}
-            <circle cx="95" cy="85" r="13" fill="#ec4899" />
-            <path d="M 95 98 L 155 90 C 185 90 195 110 190 145 M 95 98 L 95 145 M 155 90 L 205 145" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Figure */}
+            <path d="M 85 80 Q 130 70 160 90 Q 195 90 190 140 L 170 140 Q 175 105 145 105 L 95 105 L 95 145 L 80 145 Z" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="90" cy="75" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Male Figure (Cyan) */}
-            <circle cx="245" cy="65" r="13" fill="#06b6d4" />
-            <path d="M 245 78 C 235 115 220 140 220 170 M 245 78 L 175 95 M 220 120 L 180 145" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Figure */}
+            <path d="M 235 60 Q 225 100 220 130 Q 215 160 215 170 L 230 170 L 235 125 Q 240 95 245 60 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="240" cy="55" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 235 75 Q 195 90 175 95" stroke="#ffffff" strokeWidth="3" fill="none" />
           </g>
         )}
 
         {posType === 2 && (
-          /* 3. Cowgirl Riding: Male lying flat, Female sitting upright on top of his hips */
+          /* 3. Cowgirl Sketch: Male flat, Female upright seated riding posture */
           <g>
-            {/* Male Figure (Cyan) */}
-            <circle cx="55" cy="135" r="13" fill="#06b6d4" />
-            <path d="M 55 148 L 160 148 L 255 148 M 125 148 L 85 125 M 170 148 L 225 125" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Base Figure */}
+            <path d="M 50 135 L 255 135 L 255 150 L 50 150 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="55" cy="125" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Female Seated Figure (Hot Pink) */}
-            <circle cx="165" cy="40" r="13" fill="#ec4899" />
-            <path d="M 165 53 L 165 115 M 165 75 L 120 95 M 165 75 L 210 95 M 165 115 L 130 145 M 165 115 L 200 145" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Seated Figure */}
+            <path d="M 150 40 Q 165 40 165 80 Q 165 110 135 140 L 115 140 Q 145 110 145 80 Z" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="160" cy="35" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 155 70 Q 120 90 110 100 M 155 70 Q 195 90 205 100" stroke="#ffffff" strokeWidth="3" fill="none" />
           </g>
         )}
 
         {posType === 3 && (
-          /* 4. Reverse Cowgirl: Male lying flat, Female sitting on top facing away with arched back */
+          /* 4. Reverse Cowgirl Sketch: Male flat, Female upright facing away */
           <g>
-            {/* Male Figure (Cyan) */}
-            <circle cx="255" cy="135" r="13" fill="#06b6d4" />
-            <path d="M 255 148 L 150 148 L 55 148 M 180 148 L 220 125 M 140 148 L 90 125" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Base Figure */}
+            <path d="M 255 135 L 50 135 L 50 150 L 255 150 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="250" cy="125" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Female Seated Figure (Pink - Facing Left) */}
-            <circle cx="140" cy="45" r="13" fill="#ec4899" />
-            <path d="M 140 58 Q 155 90 145 120 M 140 75 L 90 95 M 145 120 L 110 145 M 145 120 L 175 145" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Seated Facing Left */}
+            <path d="M 140 40 Q 125 40 125 80 Q 125 110 155 140 L 175 140 Q 145 110 145 80 Z" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="135" cy="35" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 140 70 Q 100 90 90 100 M 140 70 Q 180 90 190 100" stroke="#ffffff" strokeWidth="3" fill="none" />
           </g>
         )}
 
         {posType === 4 && (
-          /* 5. Spooning Intimacy: Both lying side-by-side tucked tightly together */
+          /* 5. Spooning Sketch: Parallel curved bodies side-by-side */
           <g>
-            {/* Female Inner Figure (Hot Pink) */}
-            <circle cx="110" cy="80" r="13" fill="#ec4899" />
-            <path d="M 110 93 Q 165 95 185 140 M 130 95 L 175 135 M 150 95 L 195 150" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Inner Figure */}
+            <path d="M 105 75 Q 160 80 180 135 L 160 135 Q 140 95 95 85 Z" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="100" cy="70" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Male Outer Figure (Cyan) */}
-            <circle cx="80" cy="65" r="13" fill="#06b6d4" />
-            <path d="M 80 78 Q 145 80 170 130 M 100 80 L 155 125 M 135 80 L 175 140" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Outer Figure */}
+            <path d="M 75 60 Q 140 65 165 125 L 145 125 Q 120 80 65 70 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="70" cy="55" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 90 70 Q 140 85 160 100" stroke="#ffffff" strokeWidth="2.5" fill="none" />
           </g>
         )}
 
         {posType === 5 && (
-          /* 6. Standing Lap Lift: Male standing, Female lifted in his arms with legs wrapped around hips */
+          /* 6. Standing Lap Lift Sketch: Male standing, Female lifted with legs around hips */
           <g>
-            {/* Male Standing Figure (Cyan) */}
-            <circle cx="125" cy="30" r="13" fill="#06b6d4" />
-            <path d="M 125 43 L 125 120 L 110 175 M 125 120 L 140 175 M 125 65 L 170 85" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Standing Body */}
+            <path d="M 120 30 Q 125 70 120 120 L 110 175 L 130 175 L 135 120 Q 130 70 125 30 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="120" cy="25" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Female Lifted Figure (Hot Pink) */}
-            <circle cx="165" cy="50" r="13" fill="#ec4899" />
-            <path d="M 165 63 L 160 110 M 160 110 L 120 130 M 160 110 L 200 135 M 165 75 L 125 95" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Lifted Body */}
+            <path d="M 160 45 Q 165 75 155 105 Q 130 125 110 125 Q 140 125 160 105 Z" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="160" cy="40" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M 160 65 Q 130 85 115 95 M 160 105 Q 195 125 205 135" stroke="#ffffff" strokeWidth="3" fill="none" />
           </g>
         )}
 
         {posType === 6 && (
-          /* 7. 69 Oral Symmetry: Inverted dual intimate alignment */
+          /* 7. 69 Sketch: Inverted dual intimate alignment */
           <g>
-            {/* Top Inverted Figure (Hot Pink) */}
-            <circle cx="215" cy="115" r="13" fill="#ec4899" />
-            <path d="M 215 102 L 150 85 L 90 100 M 180 90 L 135 120" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Top Inverted Female */}
+            <path d="M 205 115 Q 150 95 90 105 Q 130 85 200 95 Z" fill={`url(#femaleGrad_${id})`} stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="210" cy="115" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Bottom Figure (Cyan) */}
-            <circle cx="80" cy="70" r="13" fill="#06b6d4" />
-            <path d="M 80 83 L 145 100 L 205 85 M 115 90 L 160 60" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Bottom Male */}
+            <path d="M 75 65 Q 130 85 190 75 Q 150 95 80 85 Z" fill={`url(#maleGrad_${id})`} stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="70" cy="65" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
           </g>
         )}
 
         {posType === 7 && (
-          /* 8. Lotus Seated Embrace: Male cross-legged, Female in his lap facing him */
+          /* 8. Lotus Seated Sketch: Male cross-legged, Female in his lap facing him */
           <g>
-            {/* Male Seated Base (Cyan) */}
-            <circle cx="130" cy="45" r="13" fill="#06b6d4" />
-            <path d="M 130 58 L 130 120 L 85 155 M 130 120 L 175 155 M 130 75 L 85 105 M 130 75 L 175 105" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Base */}
+            <path d="M 125 40 Q 125 80 125 120 M 80 150 Q 125 120 170 150" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <circle cx="125" cy="35" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Female Lap Figure (Hot Pink) */}
-            <circle cx="165" cy="45" r="13" fill="#ec4899" />
-            <path d="M 165 58 L 160 120 L 110 150 M 160 120 L 200 150 M 165 75 L 120 100" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Lap */}
+            <path d="M 160 40 Q 160 80 155 120 M 110 145 Q 155 120 195 145" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <circle cx="160" cy="35" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
           </g>
         )}
 
         {posType === 8 && (
-          /* 9. Standing Rear Entry: Female bent over table/bed, Male behind her */
+          /* 9. Standing Rear Entry Sketch: Female bent over, Male standing behind */
           <g>
-            {/* Female Bent Over Figure (Hot Pink) */}
-            <circle cx="75" cy="115" r="13" fill="#ec4899" />
-            <path d="M 75 128 L 140 100 L 180 135 M 140 100 L 140 160 M 180 135 L 180 170" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Bent Over */}
+            <path d="M 70 110 Q 135 90 175 130 L 175 165 M 135 90 L 135 165" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <circle cx="65" cy="110" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Male Standing Behind (Cyan) */}
-            <circle cx="230" cy="55" r="13" fill="#06b6d4" />
-            <path d="M 230 68 L 220 125 L 220 170 M 230 68 L 165 95 M 220 125 L 185 150" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Behind */}
+            <path d="M 225 50 Q 215 110 215 165 M 225 65 L 160 90" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <circle cx="225" cy="45" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
           </g>
         )}
 
         {posType === 9 && (
-          /* 10. Pretzel Side Lock: Side-lying angle with top leg hooked over hip */
+          /* 10. Pretzel Side Lock Sketch: Side-lying angle with top leg hooked over hip */
           <g>
-            {/* Female Figure (Hot Pink) */}
-            <circle cx="110" cy="40" r="13" fill="#ec4899" />
-            <path d="M 110 53 L 130 110 L 195 140 M 110 53 L 175 80 M 130 110 L 75 140" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Female Side Figure */}
+            <path d="M 105 35 Q 125 90 190 135 M 105 48 L 170 75 M 125 90 L 70 135" stroke="#ec4899" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <circle cx="105" cy="30" r="14" fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
 
-            {/* Male Figure (Cyan) */}
-            <circle cx="170" cy="60" r="13" fill="#06b6d4" />
-            <path d="M 170 73 L 155 125 L 210 155 M 170 73 L 115 100 M 155 125 L 105 155" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            {/* Male Side Figure */}
+            <path d="M 165 55 Q 150 110 205 150 M 165 68 L 110 95 M 150 110 L 100 150" stroke="#06b6d4" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <circle cx="165" cy="50" r="14" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
           </g>
         )}
       </g>
 
-      {/* Position Title Banner */}
-      <rect x="15" y="145" width="310" height="32" rx="10" fill="#000000" opacity="0.9" stroke="#ec4899" strokeWidth="1" />
-      <text x="170" y="166" textAnchor="middle" fill="#ec4899" fontSize="12" fontWeight="900" fontFamily="sans-serif">
-        #{id} • {title}
+      {/* Position Title Sketch Label Tag */}
+      <rect x="15" y="145" width="310" height="32" rx="10" fill="#000000" opacity="0.9" stroke="#f43f5e" strokeWidth="1.5" />
+      <text x="170" y="166" textAnchor="middle" fill="#f43f5e" fontSize="12" fontWeight="900" fontFamily="sans-serif">
+        SKETCH #{id} • {title}
       </text>
     </svg>
   );
@@ -210,7 +237,7 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-black text-purple-400 uppercase tracking-wider neon-text-purple">
-                100 POSITIONS GALLERY 🔥
+                100 SKETCH POSITIONS GALLERY 🔥
               </h2>
               <p className="text-xs text-gray-400">Scroll down to view 3 positions at a time</p>
             </div>
@@ -221,7 +248,7 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
             <Search className="w-4 h-4 text-purple-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search 100 Intimate Positions..."
+              placeholder="Search 100 Intimate Sketch Positions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-black/80 border border-purple-500/40 rounded-xl text-white placeholder-gray-500 text-xs font-bold focus:outline-none focus:border-purple-400"
@@ -242,7 +269,7 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
               className="group cursor-pointer rounded-3xl overflow-hidden border-2 border-purple-500/50 bg-[#0a0418] hover:border-pink-500 transition-all active:scale-98 shadow-[0_0_25px_rgba(168,85,247,0.35)] flex flex-col p-3 min-h-[190px] w-full"
             >
               {/* LARGE Diagram Canvas Container */}
-              <div className="h-40 sm:h-44 w-full rounded-2xl overflow-hidden relative flex items-center justify-center bg-[#080312] border border-purple-500/30">
+              <div className="h-40 sm:h-44 w-full rounded-2xl overflow-hidden relative flex items-center justify-center bg-[#070210] border border-purple-500/30">
                 {renderPositionDiagramSvg(item.id, item.title)}
               </div>
               <div className="mt-2.5 px-1 flex items-center justify-between">
@@ -261,7 +288,7 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
         </div>
 
         <div className="mt-3 pt-2.5 border-t border-white/10 text-center text-xs text-purple-300 font-mono">
-          ✨ 100 Realistic Anatomical Intimate Vector Diagrams
+          ✨ 100 Realistic Hand-Drawn Sketch Intimate Position Artworks
         </div>
       </div>
     </div>
