@@ -191,7 +191,11 @@ io.on('connection', (socket) => {
     socket.to(roomCode).emit('call:rejected', { username });
   });
 
-  // WebRTC Signaling relay (offer / answer / ICE candidates)
+  // WebRTC Signaling relay (offer / answer / ICE candidates / readiness)
+  socket.on('webrtc:ready', ({ roomCode }) => {
+    socket.to(roomCode).emit('webrtc:ready');
+  });
+
   socket.on('webrtc:offer', ({ roomCode, offer }) => {
     socket.to(roomCode).emit('webrtc:offer', { offer });
   });
@@ -202,6 +206,10 @@ io.on('connection', (socket) => {
 
   socket.on('webrtc:ice-candidate', ({ roomCode, candidate }) => {
     socket.to(roomCode).emit('webrtc:ice-candidate', { candidate });
+  });
+
+  socket.on('webrtc:hangup', ({ roomCode }) => {
+    socket.to(roomCode).emit('webrtc:hangup');
   });
 
   // Memories

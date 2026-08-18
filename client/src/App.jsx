@@ -39,6 +39,7 @@ function App() {
   // Call, Chaos & Games Modals
   const [showLiveKitCall, setShowLiveKitCall] = useState(false)
   const [callType, setCallType] = useState('video')
+  const [isCaller, setIsCaller] = useState(false)
   const [incomingCall, setIncomingCall] = useState(null)
   const [showSoundboard, setShowSoundboard] = useState(false)
   const [showPositionsModal, setShowPositionsModal] = useState(false)
@@ -287,6 +288,7 @@ function App() {
 
   const handleStartCall = (type) => {
     setCallType(type)
+    setIsCaller(true)
     setShowLiveKitCall(true)
     if (socket && currentRoom) {
       socket.emit('call:initiate', { roomCode: currentRoom, callerName: username, callType: type })
@@ -297,7 +299,11 @@ function App() {
   const handleAcceptCall = () => {
     if (incomingCall) {
       setCallType(incomingCall.callType)
+      setIsCaller(false)
       setShowLiveKitCall(true)
+      if (socket && currentRoom) {
+        socket.emit('call:accept', { roomCode: currentRoom })
+      }
       setIncomingCall(null)
       toast.success(`Joined call with @${incomingCall.callerName}! 🎙️`)
     }
@@ -795,6 +801,7 @@ function App() {
           username={username}
           socket={socket}
           callType={callType}
+          isCaller={isCaller}
           onClose={() => setShowLiveKitCall(false)}
           onOpenChat={() => setShowChat(true)}
         />
