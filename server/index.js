@@ -32,7 +32,19 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(clientDistPath));
+
+// Strict No-Cache Middleware to force mobile browsers to load fresh updates instantly
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
+app.use(express.static(clientDistPath, {
+  etag: false,
+  maxAge: 0
+}));
 
 // LiveKit Token Endpoint
 app.post('/api/livekit-token', async (req, res) => {
