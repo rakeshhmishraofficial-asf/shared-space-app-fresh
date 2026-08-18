@@ -3,9 +3,10 @@ import toast, { Toaster } from 'react-hot-toast'
 import Canvas from './components/Canvas'
 import ChatSidebar from './components/ChatSidebar'
 import LiveKitCall from './components/LiveKitCall'
+import CallNotification from './components/CallNotification'
 import Soundboard, { playSoundEffect } from './components/Soundboard'
 import ChaosToolbar from './components/ChaosToolbar'
-import PositionGifModal from './components/PositionGifModal'
+import PositionGifModal, { renderPositionDiagramSvg } from './components/PositionGifModal'
 import CoupleGamesModal from './components/CoupleGamesModal'
 import { useSocket } from './hooks/useSocket'
 import { MessageCircle, Video, Share2, Users, Lock, Globe, Flame, Radio, Menu, X, Volume2, EyeOff, Camera, SlidersHorizontal, Dices, Download, Heart } from 'lucide-react'
@@ -38,6 +39,7 @@ function App() {
   // Call, Chaos & Games Modals
   const [showLiveKitCall, setShowLiveKitCall] = useState(false)
   const [callType, setCallType] = useState('video')
+  const [incomingCall, setIncomingCall] = useState(null)
   const [showSoundboard, setShowSoundboard] = useState(false)
   const [showPositionsModal, setShowPositionsModal] = useState(false)
   const [showGamesModal, setShowGamesModal] = useState(false)
@@ -87,11 +89,6 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // URL param listener disabled so room code is always blank for user typing
-  useEffect(() => {
-    // Keep room code blank on initial load so user types custom code
-  }, []);
-
   // Socket Event Listeners
   useEffect(() => {
     if (!socket) return
@@ -101,13 +98,21 @@ function App() {
     })
 
     socket.on('user-joined', ({ username: joinedUser }) => {
-      setActiveUsers(prev => prev + 1)
       toast.success(`🔥 @${joinedUser} entered the room!`, { icon: '🔥' })
     })
 
     socket.on('user-left', ({ username: leftUser }) => {
-      setActiveUsers(prev => Math.max(0, prev - 1))
       toast(`💀 @${leftUser} left the room`)
+    })
+
+    socket.on('call:incoming', ({ callerName, callType: incomingType }) => {
+      setIncomingCall({ callerName, callType: incomingType })
+      toast(`📞 @${callerName} is calling you!`, { icon: '📞', duration: 6000 })
+    })
+
+    socket.on('call:rejected', ({ username: rejectUser }) => {
+      toast.error(`@${rejectUser} declined the call.`)
+      setShowLiveKitCall(false)
     })
 
     socket.on('sound:trigger', ({ soundId, soundName, username: triggerUser }) => {
@@ -123,9 +128,9 @@ function App() {
       setTimeout(() => setIsPartyMode(false), 4000);
     });
 
-    socket.on('position:gif', ({ username: gifUser, gifUrl, title }) => {
+    socket.on('position:gif', ({ username: gifUser, id, title }) => {
       if (!hidePositions) {
-        setBroadcastGif({ gifUrl, title, username: gifUser });
+        setBroadcastGif({ svgId: id, title, username: gifUser });
         toast.success(`🔥 @${gifUser} broadcasted ${title}!`, { icon: '🔥', duration: 5000 });
         setTimeout(() => setBroadcastGif(null), 7000);
       }
@@ -183,6 +188,8 @@ function App() {
       socket.off('room-state')
       socket.off('user-joined')
       socket.off('user-left')
+      socket.off('call:incoming')
+      socket.off('call:rejected')
       socket.off('sound:trigger')
       socket.off('party:mode')
       socket.off('position:gif')
@@ -218,152 +225,178 @@ function App() {
     toast.success(`Entered Room: ${cleanRoom}`)
   }
 
-  const handle1ClickJoinDashboardRoom = (roomItem) => {
-    if (!username.trim()) {
-      toast.error('Please type a Username first!');
-      return;
-    }
-
-    setRoomCode(roomItem.roomCode);
-    if (roomItem.hasPassword) {
-      setTargetRoomToJoin(roomItem);
-      setShowPasswordModal(true);
-    } else {
-      setIsPrivate(false);
-      setRoomPassword('');
-      handleJoinRoom(null, '', roomItem.roomCode);
-    }
-  };
-
-  const handleConfirmPasswordJoin = (e) => {
-    e.preventDefault();
-    if (!inputPasswordAttempt.trim()) return;
-    setShowPasswordModal(false);
-    handleJoinRoom(null, inputPasswordAttempt.trim(), targetRoomToJoin?.roomCode);
-    setInputPasswordAttempt('');
-  };
-
   const handleCreateRoom = () => {
     const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
     setRoomCode(randomCode)
+    toast.success(`Generated Random Code: ${randomCode}`)
+  }
+
+  const handle1ClickJoinDashboardRoom = (roomObj) => {
+    if (!username.trim()) {
+      toast.error('Please enter your username first!')
+      return
+    }
+
+    if (roomObj.hasPassword) {
+      setTargetRoomToJoin(roomObj.roomCode)
+      setShowPasswordModal(true)
+    } else {
+      setRoomCode(roomObj.roomCode)
+      handleJoinRoom(null, null, roomObj.roomCode)
+    }
+  }
+
+  const handlePasswordModalSubmit = (e) => {
+    e.preventDefault()
+    if (!inputPasswordAttempt) {
+      toast.error('Please enter password')
+      return
+    }
+
+    setShowPasswordModal(false)
+    setRoomCode(targetRoomToJoin)
+    handleJoinRoom(null, inputPasswordAttempt, targetRoomToJoin)
+    setInputPasswordAttempt('')
+  }
+
+  const handleStartCall = (type) => {
+    setCallType(type)
+    setShowLiveKitCall(true)
+    if (socket && currentRoom) {
+      socket.emit('call:initiate', { roomCode: currentRoom, callerName: username, callType: type })
+      toast.success(`Calling room participants... 📞`)
+    }
+  }
+
+  const handleAcceptCall = () => {
+    if (incomingCall) {
+      setCallType(incomingCall.callType)
+      setShowLiveKitCall(true)
+      setIncomingCall(null)
+      toast.success(`Joined call with @${incomingCall.callerName}! 🎙️`)
+    }
+  }
+
+  const handleRejectCall = () => {
+    if (incomingCall && socket && currentRoom) {
+      socket.emit('call:reject', { roomCode: currentRoom, username })
+    }
+    setIncomingCall(null)
+    toast('Call declined', { icon: '🔴' })
+  }
+
+  const handleTriggerSoundboard = (soundId, soundName) => {
+    if (!muteSfx) {
+      playSoundEffect(soundId);
+    }
+    if (socket && currentRoom) {
+      socket.emit('sound:trigger', { roomCode: currentRoom, soundId, soundName, username });
+    }
+  }
+
+  const handleTriggerCanvasBomb = () => {
+    setIsPartyMode(true);
+    toast(`🪩 DISCO PARTY MODE TRIGGERED!`, { icon: '⚡' });
+    setTimeout(() => setIsPartyMode(false), 4000);
+
+    if (socket && currentRoom) {
+      socket.emit('party:mode', { roomCode: currentRoom, username });
+    }
+  }
+
+  const handleGhostSnap = () => {
+    if (socket && currentRoom) {
+      socket.emit('ghost:snap', { roomCode: currentRoom, username });
+      toast.success('Triggered Ghost Snap in Room! 📸');
+    }
+  }
+
+  const handleSelectPosition = (id, title) => {
+    setBroadcastGif({ svgId: id, title, username });
+    if (socket && currentRoom) {
+      socket.emit('position:gif', { roomCode: currentRoom, username, id, title });
+    }
+    setTimeout(() => setBroadcastGif(null), 7000);
   }
 
   const handleShareRoomLink = () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(shareUrl);
-      toast.success('1-Click Share Link copied to clipboard! 🔗');
-    }
-  };
-
-  const handleTriggerSoundboard = (soundId, soundName) => {
-    if (socket) {
-      socket.emit('sound:trigger', { roomCode: currentRoom, soundId, soundName, username });
-    }
-  };
-
-  const handleSelectPositionGif = (gifUrl, title) => {
-    if (socket) {
-      socket.emit('position:gif', { roomCode: currentRoom, username, gifUrl, title });
-    }
-  };
-
-  const handleTriggerCanvasBomb = () => {
-    if (socket) {
-      socket.emit('clear-canvas', { roomCode: currentRoom });
-    }
-  };
-
-  const handleGhostSnap = () => {
-    if (socket) {
-      socket.emit('ghost:snap', { roomCode: currentRoom, username });
-      toast('📸 Ghosted Snap requested across the room!', { icon: '👻' });
-    }
-  };
+    const link = `${window.location.origin}?room=${currentRoom}`
+    navigator.clipboard.writeText(link)
+    toast.success('Room link copied to clipboard!')
+  }
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col relative bg-[#030307] overflow-hidden">
-      <Toaster 
-        position="top-right" 
-        toastOptions={{
-          style: {
-            background: '#0f051d',
-            color: '#f43f5e',
-            border: '1px solid rgba(244, 63, 94, 0.4)',
-            boxShadow: '0 0 20px rgba(244, 63, 94, 0.2)',
-            fontWeight: 'bold'
-          }
-        }} 
+    <div className={`h-screen w-screen flex flex-col bg-slate-950 font-sans text-white overflow-hidden relative ${isPartyMode ? 'animate-pulse border-4 border-purple-500' : ''}`}>
+      <Toaster position="top-center" reverseOrder={false} />
+
+      {/* Incoming Call Ringing Notification Overlay */}
+      <CallNotification
+        isVisible={!!incomingCall}
+        callerName={incomingCall?.callerName || ''}
+        callType={incomingCall?.callType || 'video'}
+        onAccept={handleAcceptCall}
+        onReject={handleRejectCall}
       />
 
-      {/* Full-Screen Party Mode Strobe Overlay */}
-      {isPartyMode && (
-        <div className="fixed inset-0 pointer-events-none z-50 animate-party-strobe" />
-      )}
-
-      {/* Room-wide Broadcasted Position Overlay Banner */}
+      {/* Broadcasted Position Overlay Banner */}
       {broadcastGif && !hidePositions && (
-        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-black/95 p-5 rounded-3xl border-2 border-purple-500/80 shadow-[0_0_60px_rgba(168,85,247,0.5)] text-center max-w-sm pointer-events-auto">
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4">
+          <div className="bg-black/95 p-5 rounded-3xl border-2 border-purple-500/80 shadow-[0_0_60px_rgba(168,85,247,0.5)] text-center max-w-sm w-full pointer-events-auto">
             <h3 className="font-black text-xs text-purple-400 mb-2 uppercase tracking-wider">
               🔥 @{broadcastGif.username} BROADCASTED
             </h3>
-            <div className="w-full h-44 rounded-2xl overflow-hidden border border-purple-500/40 mb-2">
-              <img src={broadcastGif.gifUrl} alt={broadcastGif.title} className="w-full h-full object-cover" />
+            <div className="w-full h-44 rounded-2xl overflow-hidden border border-purple-500/40 mb-2 bg-slate-950">
+              {renderPositionDiagramSvg(broadcastGif.svgId, broadcastGif.title)}
             </div>
             <p className="font-black text-sm text-pink-400 uppercase tracking-wider">{broadcastGif.title}</p>
           </div>
         </div>
       )}
 
-      {/* Header Bar */}
-      <header className="glass-dark px-4 py-3 border-b border-white/10 flex items-center justify-between z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-600 to-purple-600 flex items-center justify-center shadow-lg font-black text-xl text-white neon-glow-red">
+      {/* Top Header Bar */}
+      <header className="glass-dark px-3 sm:px-4 py-2.5 sm:py-3 border-b border-white/10 flex items-center justify-between z-20 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-red-600 to-purple-600 flex items-center justify-center shadow-lg font-black text-lg sm:text-xl text-white neon-glow-red flex-shrink-0">
             🔥
           </div>
-          <div>
-            <h1 className="font-black text-lg text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-purple-400 to-pink-500 tracking-wider">
+          <div className="truncate">
+            <h1 className="font-black text-base sm:text-lg text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-purple-400 to-pink-500 tracking-wider truncate">
               SHARED SPACE
             </h1>
-            <p className="text-[10px] text-red-400/80 uppercase font-mono tracking-widest">Uncensored Hub</p>
+            <p className="text-[9px] sm:text-[10px] text-red-400/80 uppercase font-mono tracking-widest truncate">Uncensored Hub</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* 3-Line Settings Menu Button */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 overflow-x-auto">
           <button
             onClick={() => setShowSettingsMenu(!showSettingsMenu)}
             className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all border border-white/10"
             title="Settings Menu"
           >
-            <Menu className="w-5 h-5 text-purple-400" />
+            <Menu className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
           </button>
 
           {joined && (
             <>
               <button
                 onClick={handleShareRoomLink}
-                className="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1.5 transition-all"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1 transition-all"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Share 🔗</span>
+                <span className="hidden xs:inline">Share</span>
               </button>
 
               <button
-                onClick={() => {
-                  setCallType('video');
-                  setShowLiveKitCall(true);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all"
+                onClick={() => handleStartCall('video')}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-black flex items-center gap-1.5 shadow-lg transition-all border border-red-400/40"
               >
                 <Video className="w-3.5 h-3.5" />
-                <span>Live Call 🎙️</span>
+                <span>Call 🎙️</span>
               </button>
 
               <button
                 onClick={() => setShowChat(!showChat)}
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all relative"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all relative"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>Chat</span>
@@ -379,53 +412,45 @@ function App() {
           <div className="glass-neon-purple rounded-3xl p-6 max-w-sm w-full text-white border border-purple-500/50 shadow-2xl relative">
             <button
               onClick={() => setShowSettingsMenu(false)}
-              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-white"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
-
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2 mb-4">
               <SlidersHorizontal className="w-5 h-5 text-purple-400" />
-              <h3 className="font-black text-sm uppercase text-purple-300 tracking-wider">Control Settings</h3>
+              <h3 className="font-black text-sm uppercase text-purple-300 tracking-wider">
+                CONTROL PANEL & SETTINGS
+              </h3>
             </div>
 
-            <div className="space-y-3 text-xs font-bold">
-              <label className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-all">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-red-400" />
-                  <span>Mute SFX / Audio Triggers</span>
-                </div>
+            <div className="space-y-3">
+              <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
+                <span className="text-xs font-bold text-gray-200">Mute Audio Sound SFX</span>
                 <input
                   type="checkbox"
                   checked={muteSfx}
                   onChange={(e) => setMuteSfx(e.target.checked)}
-                  className="w-4 h-4 accent-purple-600 rounded"
+                  className="w-4 h-4 accent-purple-500"
                 />
               </label>
 
-              <label className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-all">
-                <div className="flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-purple-400" />
-                  <span>Hide Position Popups</span>
-                </div>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
+                <span className="text-xs font-bold text-gray-200">Hide Positions Overlays</span>
                 <input
                   type="checkbox"
                   checked={hidePositions}
                   onChange={(e) => setHidePositions(e.target.checked)}
-                  className="w-4 h-4 accent-purple-600 rounded"
+                  className="w-4 h-4 accent-purple-500"
                 />
               </label>
 
-              <label className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-all">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-indigo-400" />
-                  <span>Disable Ghost Snap Flashes</span>
-                </div>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
+                <span className="text-xs font-bold text-gray-200">Disable Remote Ghost Snap</span>
                 <input
                   type="checkbox"
                   checked={disableGhostSnap}
                   onChange={(e) => setDisableGhostSnap(e.target.checked)}
-                  className="w-4 h-4 accent-purple-600 rounded"
+                  className="w-4 h-4 accent-purple-500"
                 />
               </label>
 
@@ -450,16 +475,16 @@ function App() {
 
       {/* Main Content Area */}
       {!joined ? (
-        /* Provocative Smooth Pointed Teardrop Vagina Silhouette Vessel + 2 Sperm Head Top Cards */
-        <main className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-y-auto my-auto">
+        /* Smooth Teardrop Silhouette Vessel + Active Rooms Card */
+        <main className="flex-1 flex flex-col items-center justify-center p-3 sm:p-6 relative overflow-y-auto my-auto">
           <div className="absolute inset-0 bg-gradient-to-br from-red-950/40 via-black to-purple-950/50 pointer-events-none" />
           
-          <div className="relative z-10 w-full max-w-5xl flex flex-col items-center">
+          <div className="relative z-10 w-full max-w-2xl flex flex-col items-center gap-4 sm:gap-6">
             
-            {/* Single Sperm Head: Active Rooms Card Centered */}
-            <div className="w-full max-w-md mb-6">
-              <div className="relative p-5 rounded-[40px] bg-[#0c0517]/95 border-2 border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.3)] flex items-center gap-4 group hover:scale-[1.02] transition-transform">
-                <div className="w-16 h-16 relative flex-shrink-0 flex items-center justify-center">
+            {/* Active Rooms Card */}
+            <div className="w-full max-w-md">
+              <div className="relative p-4 sm:p-5 rounded-3xl sm:rounded-[40px] bg-[#0c0517]/95 border-2 border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.3)] flex items-center gap-3 sm:gap-4 group hover:scale-[1.02] transition-transform">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 relative flex-shrink-0 flex items-center justify-center">
                   <svg viewBox="0 0 160 100" className="w-full h-full text-purple-400 filter drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]">
                     <ellipse cx="45" cy="50" rx="30" ry="22" fill="currentColor" opacity="0.9" />
                     <circle cx="40" cy="45" r="10" fill="#ffffff" opacity="0.4" />
@@ -477,15 +502,15 @@ function App() {
                     </span>
                   </div>
 
-                  <div className="space-y-1 max-h-20 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                     {publicRooms.length === 0 ? (
-                      <p className="text-[10px] text-gray-500 italic">No active rooms</p>
+                      <p className="text-[10px] text-gray-500 italic">No active rooms right now</p>
                     ) : (
                       publicRooms.map((r) => (
                         <div
                           key={r.roomCode}
                           onClick={() => handle1ClickJoinDashboardRoom(r)}
-                          className="p-1 rounded-xl bg-white/5 hover:bg-white/10 border border-purple-500/20 text-[11px] flex items-center justify-between cursor-pointer"
+                          className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-purple-500/20 text-xs flex items-center justify-between cursor-pointer"
                         >
                           <span className="font-mono font-bold text-purple-200">{r.roomCode}</span>
                           <span className="text-[10px] text-red-300 font-bold">{r.userCount || 1} 🍑</span>
@@ -495,31 +520,30 @@ function App() {
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Central Pointed Organic Teardrop Silhouette Container */}
-            <div className="relative w-full max-w-md p-[3px] rounded-[50%_50%_45%_45%_/_65%_65%_35%_35%] bg-gradient-to-b from-purple-500 via-pink-500 to-red-600 shadow-[0_0_90px_rgba(236,72,153,0.5)]">
-              <div className="bg-[#0b0518]/98 backdrop-blur-3xl rounded-[50%_50%_45%_45%_/_65%_65%_35%_35%] px-8 py-10 border border-pink-500/40 text-white shadow-2xl relative text-center">
+            <div className="relative w-full max-w-md p-[3px] rounded-[45px] sm:rounded-[50%_50%_45%_45%_/_65%_65%_35%_35%] bg-gradient-to-b from-purple-500 via-pink-500 to-red-600 shadow-[0_0_90px_rgba(236,72,153,0.5)]">
+              <div className="bg-[#0b0518]/98 backdrop-blur-3xl rounded-[43px] sm:rounded-[50%_50%_45%_45%_/_65%_65%_35%_35%] px-5 sm:px-8 py-6 sm:py-10 border border-pink-500/40 text-white shadow-2xl relative text-center">
                 
                 {/* Clitoral Top Node */}
-                <div className="w-6 h-6 mx-auto mb-2 rounded-full bg-gradient-to-br from-pink-400 to-red-500 border-2 border-white shadow-[0_0_20px_rgba(244,63,94,0.9)] animate-pulse" />
+                <div className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-2 rounded-full bg-gradient-to-br from-pink-400 to-red-500 border-2 border-white shadow-[0_0_20px_rgba(244,63,94,0.9)] animate-pulse" />
 
                 <div className="text-center mb-4">
                   <button
                     type="button"
                     onClick={() => playSoundEffect('moan')}
-                    className="w-14 h-14 mx-auto mb-1 bg-gradient-to-br from-red-600 via-rose-600 to-purple-600 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-transform hover:scale-110 border-2 border-red-400/50 neon-glow-red"
+                    className="w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-1 bg-gradient-to-br from-red-600 via-rose-600 to-purple-600 rounded-full flex items-center justify-center text-xl sm:text-2xl shadow-2xl transition-transform hover:scale-110 border-2 border-red-400/50 neon-glow-red"
                     title="Click for Moan Effect"
                   >
                     🔥
                   </button>
-                  <h2 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-purple-300 to-pink-500 tracking-wider">
+                  <h2 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-purple-300 to-pink-500 tracking-wider">
                     ENTER COLLABORATION VESSEL
                   </h2>
                 </div>
 
-                <form onSubmit={(e) => handleJoinRoom(e)} className="space-y-3 text-left">
+                <form onSubmit={(e) => handleJoinRoom(e)} className="space-y-3.5 text-left">
                   <div>
                     <label className="block text-[11px] font-bold text-red-300 uppercase mb-1 tracking-wider">Username</label>
                     <input
@@ -527,7 +551,7 @@ function App() {
                       placeholder="Your Alias..."
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/80 border border-red-500/40 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-bold text-xs"
+                      className="w-full px-4 py-3 bg-black/80 border border-red-500/40 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-bold text-xs"
                       required
                     />
                   </div>
@@ -540,7 +564,7 @@ function App() {
                         placeholder="Enter Room Code..."
                         value={roomCode}
                         onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                        className="flex-1 px-4 py-2.5 bg-black/80 border border-red-500/40 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-mono font-bold text-xs uppercase"
+                        className="flex-1 px-4 py-3 bg-black/80 border border-red-500/40 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-mono font-bold text-xs uppercase"
                         required
                         autoComplete="off"
                         autoCorrect="off"
@@ -549,7 +573,7 @@ function App() {
                       <button
                         type="button"
                         onClick={handleCreateRoom}
-                        className="px-3 py-2.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 rounded-2xl text-xs font-bold text-purple-300 transition-all"
+                        className="px-3.5 py-3 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 rounded-2xl text-xs font-bold text-purple-300 transition-all whitespace-nowrap"
                       >
                         Random
                       </button>
@@ -563,7 +587,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => setIsPrivate(false)}
-                        className={`p-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                        className={`p-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
                           !isPrivate
                             ? 'bg-cyan-600/40 border-cyan-400 text-cyan-200 shadow-lg'
                             : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
@@ -576,9 +600,9 @@ function App() {
                       <button
                         type="button"
                         onClick={() => setIsPrivate(true)}
-                        className={`p-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                        className={`p-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
                           isPrivate
-                            ? 'bg-amber-600/40 border-amber-400 text-amber-200 shadow-lg'
+                            ? 'bg-red-600/40 border-red-400 text-red-200 shadow-lg'
                             : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
                         }`}
                       >
@@ -586,26 +610,26 @@ function App() {
                         <span>Private Room</span>
                       </button>
                     </div>
-
-                    {isPrivate && (
-                      <div className="mt-2 animate-fade-in">
-                        <input
-                          type="password"
-                          placeholder="Set Room Password..."
-                          value={roomPassword}
-                          onChange={(e) => setRoomPassword(e.target.value)}
-                          className="w-full px-4 py-2 bg-black/80 border border-amber-500/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 font-bold text-xs"
-                          required
-                        />
-                      </div>
-                    )}
                   </div>
+
+                  {isPrivate && (
+                    <div className="animate-fade-in">
+                      <label className="block text-[11px] font-bold text-red-300 uppercase mb-1 tracking-wider">Set Room Password</label>
+                      <input
+                        type="password"
+                        placeholder="Secret Passcode..."
+                        value={roomPassword}
+                        onChange={(e) => setRoomPassword(e.target.value)}
+                        className="w-full px-4 py-3 bg-black/80 border border-red-500/40 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-bold text-xs"
+                      />
+                    </div>
+                  )}
 
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-red-600 via-purple-600 to-rose-600 hover:from-red-500 hover:to-rose-500 font-black text-xs uppercase tracking-widest text-white shadow-2xl transition-all border border-red-400/50 neon-glow-red mt-2"
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 via-purple-600 to-pink-600 hover:from-red-500 hover:to-pink-500 font-black text-sm text-white shadow-[0_0_30px_rgba(236,72,153,0.6)] flex items-center justify-center gap-2 border border-pink-400/50 hover:scale-[1.02] active:scale-95 transition-all mt-4"
                   >
-                    Enter Room 🔥
+                    <span>ENTER ROOM NOW 🔥</span>
                   </button>
                 </form>
               </div>
@@ -619,7 +643,7 @@ function App() {
           {/* Main Canvas Area */}
           <div className="flex-1 relative flex flex-col">
             {/* Top Chaos Bar + Active Room Member Count */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-full px-2">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-full px-2 overflow-x-auto">
               <div className="px-3.5 py-2 bg-black/90 backdrop-blur-2xl border border-purple-500/60 rounded-2xl shadow-[0_0_25px_rgba(168,85,247,0.5)] text-xs font-black text-purple-300 flex items-center gap-2 whitespace-nowrap">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
                 <span className="font-mono text-purple-200">ROOM: {currentRoom}</span>
@@ -649,50 +673,48 @@ function App() {
           {/* Right Chat Sidebar - Kept mounted to retain all messages & dares */}
           <div className={showChat ? "w-full sm:w-[460px] md:w-[480px] fixed md:relative right-0 top-0 bottom-0 h-full z-40 flex animate-fade-in" : "hidden"}>
             <ChatSidebar
-              socket={socket}
-              roomCode={currentRoom}
-              username={username}
               isOpen={showChat}
               onClose={() => setShowChat(false)}
-              onTriggerSoundboard={() => setShowSoundboard(true)}
+              roomCode={currentRoom}
+              username={username}
+              socket={socket}
               onOpenGamesModal={() => setShowGamesModal(true)}
             />
           </div>
         </main>
       )}
 
-      {/* Private Room Password Attempt Modal */}
+      {/* Password Prompt Modal for Protected Rooms */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="glass-neon-red rounded-3xl p-6 max-w-sm w-full text-white border border-amber-500/50 shadow-2xl relative">
-            <div className="text-center mb-4">
-              <Lock className="w-10 h-10 mx-auto text-amber-400 mb-2" />
-              <h3 className="font-bold text-lg text-amber-300">Private Room Password</h3>
-              <p className="text-xs text-gray-400">Enter password for room {targetRoomToJoin?.roomCode}</p>
-            </div>
-            <form onSubmit={handleConfirmPasswordJoin} className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass-neon-purple rounded-3xl p-6 max-w-sm w-full text-white border border-purple-500/50 shadow-2xl relative text-center">
+            <h3 className="font-black text-base text-purple-300 mb-1 uppercase tracking-wider">
+              PROTECTED ROOM
+            </h3>
+            <p className="text-xs text-gray-400 mb-4">Room <span className="font-mono font-bold text-pink-400">{targetRoomToJoin}</span> is password protected.</p>
+            
+            <form onSubmit={handlePasswordModalSubmit} className="space-y-3">
               <input
                 type="password"
-                placeholder="Enter password..."
+                placeholder="Enter Room Password..."
                 value={inputPasswordAttempt}
                 onChange={(e) => setInputPasswordAttempt(e.target.value)}
-                className="w-full px-4 py-3 bg-black/80 border border-amber-500/50 rounded-xl text-white focus:outline-none text-sm font-bold"
-                autoFocus
+                className="w-full px-4 py-3 bg-black/80 border border-purple-500/50 rounded-2xl text-white placeholder-gray-500 focus:outline-none font-bold text-xs"
                 required
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-bold text-xs"
+                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-gray-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg"
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-black text-white shadow-lg"
                 >
-                  Unlock & Join
+                  Join Room
                 </button>
               </div>
             </form>
@@ -700,27 +722,27 @@ function App() {
         </div>
       )}
 
-      {/* 50+ Positions Gallery Modal */}
-      <PositionGifModal
-        isOpen={showPositionsModal}
-        onClose={() => setShowPositionsModal(false)}
-        onSelectPosition={handleSelectPositionGif}
-      />
-
-      {/* 35 Dark Prompts + LDR Couple Games Modal */}
-      <CoupleGamesModal
-        isOpen={showGamesModal}
-        onClose={() => setShowGamesModal(false)}
-        socket={socket}
-        roomCode={currentRoom}
-        username={username}
-      />
-
       {/* Soundboard Modal */}
       <Soundboard
         isOpen={showSoundboard}
         onClose={() => setShowSoundboard(false)}
         onTriggerSound={handleTriggerSoundboard}
+      />
+
+      {/* Sex Positions Vector Diagrams Modal */}
+      <PositionGifModal
+        isOpen={showPositionsModal}
+        onClose={() => setShowPositionsModal(false)}
+        onSelectPosition={handleSelectPosition}
+      />
+
+      {/* Couple Games & Dark Wild Dares Modal */}
+      <CoupleGamesModal
+        isOpen={showGamesModal}
+        onClose={() => setShowGamesModal(false)}
+        roomCode={currentRoom}
+        username={username}
+        socket={socket}
       />
 
       {/* LiveKit Call Modal */}

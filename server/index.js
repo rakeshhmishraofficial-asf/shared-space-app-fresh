@@ -164,6 +164,17 @@ io.on('connection', (socket) => {
     socket.to(roomCode).emit('file-message', { username, fileData, fileName, fileType, timestamp, messageId });
   });
 
+  // Live Call Signaling & Invitation Events
+  socket.on('call:initiate', ({ roomCode, callerName, callType }) => {
+    logger.room('Call initiated', { roomCode, callerName, callType });
+    socket.to(roomCode).emit('call:incoming', { callerName, callType });
+  });
+
+  socket.on('call:reject', ({ roomCode, username }) => {
+    logger.room('Call rejected', { roomCode, username });
+    socket.to(roomCode).emit('call:rejected', { username });
+  });
+
   // Memories
   socket.on('get-memories', ({ roomCode }) => {
     const room = rooms.get(roomCode);

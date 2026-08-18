@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Flame } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// 50 Vector Illustrated Sex Positions with embedded SVG diagrams for 100% mobile compatibility
 export const POSITIONS_LIST = Array.from({ length: 50 }, (_, i) => {
   const titles = [
     'Missionary Position 💋', 'Doggy Style Position 🐾', 'Cowgirl Position 🤠', 'Reverse Cowgirl Position 🔄',
@@ -18,22 +19,52 @@ export const POSITIONS_LIST = Array.from({ length: 50 }, (_, i) => {
     'Helix Position 🧬', 'Pulse Rhythm 💓', 'Prone Position 🛌', 'Reclined Arch 🛋️',
     'Vertical Thrust 🚀', 'Zen Embrace ☯️'
   ];
+  
+  const id = i + 1;
   return {
-    id: i + 1,
-    title: titles[i] || `Position ${i + 1} 🔥`,
-    gifUrl: `https://media.tenor.com/m/${(i % 5 === 0) ? '5G5G7x7x7x0AAAAC/hug-love.gif' : (i % 5 === 1) ? '8Y8P8e2t2QAAAAAC/couple-hug.gif' : (i % 5 === 2) ? 'y296_xR6X9AAAAAC/anime-hug.gif' : (i % 5 === 3) ? 'J72D3n-9-JMAAAAC/anime-kiss.gif' : '0vK3q-Xq_84AAAAC/cuddle-couple.gif'}`
+    id,
+    title: titles[i] || `Position ${id} 🔥`,
+    svgId: id
   };
 });
 
-const getPositionSvg = (id) => (
-  <svg viewBox="0 0 200 120" className="w-full h-full bg-[#0d0718]">
-    <rect width="200" height="120" fill="#0b0614"/>
-    <path d={`M ${20 + (id % 10) * 5} ${80 - (id % 5) * 4} Q 100 50 ${180 - (id % 10) * 5} ${80 - (id % 5) * 4}`} stroke="#ec4899" strokeWidth="7" strokeLinecap="round" fill="none"/>
-    <circle cx={35 + (id % 8) * 4} cy={65 - (id % 5) * 3} r="8" fill="#ec4899"/>
-    <path d={`M ${30 + (id % 10) * 5} ${70 - (id % 5) * 4} Q 100 40 ${170 - (id % 10) * 5} ${70 - (id % 5) * 4}`} stroke="#8b5cf6" strokeWidth="7" strokeLinecap="round" fill="none"/>
-    <circle cx={40 + (id % 8) * 4} cy={50 - (id % 5) * 3} r="8" fill="#8b5cf6"/>
-    <text x="100" y="110" textAnchor="middle" fill="#f43f5e" fontSize="10" fontWeight="bold" fontFamily="sans-serif">
-      POS #{id}
+export const renderPositionDiagramSvg = (id, title = '') => (
+  <svg viewBox="0 0 200 120" className="w-full h-full bg-[#0b0614] rounded-xl">
+    <rect width="200" height="120" fill="#0b0614" />
+    <defs>
+      <linearGradient id={`grad1_${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ec4899" />
+        <stop offset="100%" stopColor="#f43f5e" />
+      </linearGradient>
+      <linearGradient id={`grad2_${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#a855f7" />
+        <stop offset="100%" stopColor="#6366f1" />
+      </linearGradient>
+    </defs>
+    
+    {/* Body Arc 1 */}
+    <path
+      d={`M ${15 + (id * 7) % 60} ${85 - (id * 5) % 30} Q 100 ${30 + (id * 9) % 40} ${185 - (id * 6) % 60} ${85 - (id * 4) % 30}`}
+      stroke={`url(#grad1_${id})`}
+      strokeWidth="9"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <circle cx={25 + (id * 7) % 50} cy={65 - (id * 4) % 25} r="9" fill="#ec4899" />
+
+    {/* Body Arc 2 */}
+    <path
+      d={`M ${25 + (id * 8) % 50} ${75 - (id * 6) % 25} Q 100 ${25 + (id * 7) % 35} ${175 - (id * 5) % 50} ${75 - (id * 5) % 25}`}
+      stroke={`url(#grad2_${id})`}
+      strokeWidth="9"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <circle cx={35 + (id * 8) % 45} cy={50 - (id * 3) % 20} r="9" fill="#a855f7" />
+
+    {/* Position ID & Title Label */}
+    <text x="100" y="110" textAnchor="middle" fill="#ec4899" fontSize="11" fontWeight="900" fontFamily="sans-serif">
+      POS #{id} • {title.split(' ')[0] || ''}
     </text>
   </svg>
 );
@@ -42,8 +73,8 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-fade-in">
-      <div className="glass-neon-purple rounded-3xl p-6 max-w-4xl w-full text-white border border-purple-500/50 shadow-2xl relative max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-xl animate-fade-in">
+      <div className="glass-neon-purple rounded-3xl p-4 sm:p-6 max-w-4xl w-full text-white border border-purple-500/50 shadow-2xl relative max-h-[88vh] flex flex-col">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-gray-400 hover:text-purple-400 text-lg transition-colors font-bold"
@@ -56,10 +87,10 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
             <Flame className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-purple-400 uppercase tracking-wider neon-text-purple">
+            <h2 className="text-lg sm:text-xl font-black text-purple-400 uppercase tracking-wider neon-text-purple">
               50+ POSITIONS GALLERY
             </h2>
-            <p className="text-xs text-gray-400">Select a position vector diagram to broadcast room-wide</p>
+            <p className="text-xs text-gray-400">Tap to broadcast vector position diagram room-wide</p>
           </div>
         </div>
 
@@ -68,24 +99,24 @@ export default function PositionGifModal({ isOpen, onClose, onSelectPosition }) 
             <div
               key={item.id}
               onClick={() => {
-                onSelectPosition(item.gifUrl, item.title, item.id);
+                onSelectPosition(item.id, item.title);
                 onClose();
-                toast.success(`Broadcasted ${item.title}!`);
+                toast.success(`Broadcasted ${item.title}! 🔥`);
               }}
-              className="group cursor-pointer rounded-2xl overflow-hidden border border-purple-500/30 bg-black/60 hover:border-purple-400 transition-all hover:scale-105 shadow-lg relative flex flex-col"
+              className="group cursor-pointer rounded-2xl overflow-hidden border border-purple-500/30 bg-black/80 hover:border-purple-400 transition-all hover:scale-105 shadow-lg flex flex-col p-1.5"
             >
-              <div className="h-28 w-full bg-slate-900 overflow-hidden relative flex items-center justify-center">
-                {getPositionSvg(item.id)}
+              <div className="h-28 w-full rounded-xl overflow-hidden relative flex items-center justify-center">
+                {renderPositionDiagramSvg(item.id, item.title)}
               </div>
-              <div className="p-2 bg-purple-950/40 text-center font-bold text-[11px] text-purple-200 truncate">
+              <div className="p-2 text-center font-bold text-xs text-purple-200 truncate">
                 {item.title}
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/10 text-center text-xs text-purple-400/80 font-mono">
-          ✨ Room-Wide Position Sync Active (50 Positions)
+        <div className="mt-3 pt-3 border-t border-white/10 text-center text-xs text-purple-300 font-mono">
+          ✨ Vector Position Diagrams Ready (50 Positions)
         </div>
       </div>
     </div>
