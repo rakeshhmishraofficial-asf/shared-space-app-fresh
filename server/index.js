@@ -111,8 +111,8 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     room.users.set(socket.id, { userId, username });
     
-    // Send current state (users array includes the joining user)
-    socket.emit('room-state', {
+    // Broadcast current state to ALL room participants so count updates instantly for everyone
+    io.to(roomCode).emit('room-state', {
       users: Array.from(room.users.values()),
       boxes: room.boxes,
       drawings: room.drawings,
@@ -406,12 +406,18 @@ io.on('connection', (socket) => {
     // Find which rooms the user was in and notify others
     rooms.forEach((room, roomCode) => {
       if (room.users.has(socket.id)) {
-        const user = room.users.get(socket.id)
-        room.users.delete(socket.id)
-        socket.to(roomCode).emit('user-left', { username: user.username })
+        const user = room.users.get(socket.id);
+        room.users.delete(socket.id);
+        socket.to(roomCode).emit('user-left', { username: user.username });
+        io.to(roomCode).emit('room-state', {
+          users: Array.from(room.users.values()),
+          boxes: room.boxes,
+          drawings: room.drawings,
+          wallpaper: room.wallpaper
+        });
         logger.socket('User disconnected from room', { socketId: socket.id, username: user.username, roomCode });
       }
-    })
+    });
     logger.socket('User disconnected', { socketId: socket.id });
   });
 });
