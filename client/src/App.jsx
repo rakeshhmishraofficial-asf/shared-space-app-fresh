@@ -44,7 +44,22 @@ function App() {
   const [showPositionsModal, setShowPositionsModal] = useState(false)
   const [showGamesModal, setShowGamesModal] = useState(false)
   const [broadcastGif, setBroadcastGif] = useState(null)
+  const broadcastTimeoutRef = useRef(null)
   const [isPartyMode, setIsPartyMode] = useState(false)
+
+  const triggerPositionBroadcast = (gifData) => {
+    if (broadcastTimeoutRef.current) clearTimeout(broadcastTimeoutRef.current);
+    setBroadcastGif(gifData);
+    // Hold position for at least 35 seconds unless cleared early by double-tap
+    broadcastTimeoutRef.current = setTimeout(() => {
+      setBroadcastGif(null);
+    }, 35000);
+  };
+
+  const clearPositionBroadcast = () => {
+    if (broadcastTimeoutRef.current) clearTimeout(broadcastTimeoutRef.current);
+    setBroadcastGif(null);
+  };
 
   const { socket } = useSocket(joined ? currentRoom : null, username, { isPrivate, password: roomPassword })
 
@@ -130,7 +145,7 @@ function App() {
 
     socket.on('position:gif', ({ username: gifUser, id, title }) => {
       if (!hidePositions) {
-        setBroadcastGif({ svgId: id, title, username: gifUser });
+        triggerPositionBroadcast({ svgId: id, title, username: gifUser });
         toast.success(`🔥 @${gifUser} broadcasted ${title}!`, { icon: '🔥', duration: 5000 });
       }
     });
@@ -311,7 +326,7 @@ function App() {
   }
 
   const handleSelectPosition = (id, title) => {
-    setBroadcastGif({ svgId: id, title, username });
+    triggerPositionBroadcast({ svgId: id, title, username });
     if (socket && currentRoom) {
       socket.emit('position:gif', { roomCode: currentRoom, username, id, title });
     }
@@ -341,7 +356,7 @@ function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-4">
           <div className="bg-black/95 p-5 sm:p-6 rounded-3xl border-2 border-purple-500/80 shadow-[0_0_70px_rgba(168,85,247,0.6)] text-center max-w-md w-full relative">
             <button
-              onClick={() => setBroadcastGif(null)}
+              onClick={clearPositionBroadcast}
               className="absolute top-3 right-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white font-bold transition-all"
             >
               <X className="w-5 h-5" />
@@ -672,7 +687,7 @@ function App() {
                 socket={socket}
                 roomCode={currentRoom}
                 username={username}
-                onClearPositionOverlay={() => setBroadcastGif(null)}
+                onClearPositionOverlay={clearPositionBroadcast}
               />
             </div>
           </div>
