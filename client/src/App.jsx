@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import Canvas from './components/Canvas'
 import ChatSidebar from './components/ChatSidebar'
@@ -47,19 +47,19 @@ function App() {
   const broadcastTimeoutRef = useRef(null)
   const [isPartyMode, setIsPartyMode] = useState(false)
 
-  const triggerPositionBroadcast = (gifData) => {
+  const triggerPositionBroadcast = useCallback((gifData) => {
     if (broadcastTimeoutRef.current) clearTimeout(broadcastTimeoutRef.current);
     setBroadcastGif(gifData);
     // Hold position for at least 35 seconds unless cleared early by double-tap
     broadcastTimeoutRef.current = setTimeout(() => {
       setBroadcastGif(null);
     }, 35000);
-  };
+  }, []);
 
-  const clearPositionBroadcast = () => {
+  const clearPositionBroadcast = useCallback(() => {
     if (broadcastTimeoutRef.current) clearTimeout(broadcastTimeoutRef.current);
     setBroadcastGif(null);
-  };
+  }, []);
 
   const { socket } = useSocket(joined ? currentRoom : null, username, { isPrivate, password: roomPassword })
 
@@ -150,6 +150,17 @@ function App() {
       }
     });
 
+    // Chat notification when sidebar is closed (user is on canvas)
+    socket.on('chat-message', ({ username: sender, message }) => {
+      if (!showChat && sender !== username) {
+        toast(`💬 ${sender}: ${message}`, {
+          icon: '💬',
+          duration: 4000,
+          style: { fontSize: '12px', padding: '8px 12px', background: '#0b0518', color: '#e879f9', border: '1px solid #7c3aed', maxWidth: '260px' }
+        });
+      }
+    });
+
     socket.on('room-access-denied', ({ message }) => {
       toast.error(message || 'Access Denied: Incorrect Password');
       setJoined(false);
@@ -210,8 +221,9 @@ function App() {
       socket.off('room-access-denied')
       socket.off('draw:notice')
       socket.off('ghost:snap')
+      socket.off('chat-message')
     }
-  }, [socket, currentRoom, username, muteSfx, hidePositions, disableGhostSnap])
+  }, [socket, currentRoom, username, muteSfx, hidePositions, disableGhostSnap, triggerPositionBroadcast, showChat])
 
   const handleJoinRoom = (e, passOverride = null, targetRoomCode = null) => {
     if (e) e.preventDefault()

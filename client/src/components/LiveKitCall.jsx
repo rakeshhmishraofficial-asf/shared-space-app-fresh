@@ -185,14 +185,19 @@ export default function LiveKitCall({ roomCode, username, onClose, callType = 'v
             </div>
           </div>
 
-          {/* Remote Peer Placeholder */}
-          <div className="relative w-full h-full min-h-[220px] rounded-xl overflow-hidden bg-slate-900/80 border border-red-500/30 shadow-inner flex items-center justify-center">
+          {/* Remote Peer / Partner Panel */}
+          <div className="relative w-full h-full min-h-[220px] rounded-xl overflow-hidden bg-slate-900/80 border border-pink-500/30 shadow-inner flex items-center justify-center">
             <div className="flex flex-col items-center justify-center text-center p-4">
-              <div className="w-20 h-20 rounded-full bg-red-600/30 border border-red-500/50 flex items-center justify-center text-2xl font-black mb-2 text-red-400 neon-glow-red animate-pulse">
-                👥
+              <div className="w-20 h-20 rounded-full bg-pink-600/30 border-2 border-pink-500/60 flex items-center justify-center text-3xl font-black mb-3 animate-pulse">
+                💋
               </div>
-              <span className="font-bold text-sm text-gray-300">Room Participants</span>
-              <span className="text-xs text-red-400 mt-1">Waiting for partner to enable camera...</span>
+              <span className="font-bold text-sm text-pink-300">Your Partner</span>
+              <span className="text-xs text-gray-400 mt-1">Connected in Room • {roomCode}</span>
+              <div className="mt-3 flex items-center gap-1.5 px-3 py-1 bg-green-600/20 border border-green-500/40 rounded-full">
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-ping" />
+                <span className="text-xs text-green-300 font-bold">Live in Room</span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-2 max-w-[160px]">Peer video requires a LiveKit server. Both of you can see yourselves and talk over mic!</p>
             </div>
           </div>
         </div>
