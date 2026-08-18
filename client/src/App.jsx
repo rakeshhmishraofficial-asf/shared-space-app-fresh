@@ -340,15 +340,21 @@ function App() {
 
       {/* Broadcasted Position Overlay Banner */}
       {broadcastGif && !hidePositions && (
-        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4">
-          <div className="bg-black/95 p-5 rounded-3xl border-2 border-purple-500/80 shadow-[0_0_60px_rgba(168,85,247,0.5)] text-center max-w-sm w-full pointer-events-auto">
-            <h3 className="font-black text-xs text-purple-400 mb-2 uppercase tracking-wider">
-              🔥 @{broadcastGif.username} BROADCASTED
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-4">
+          <div className="bg-black/95 p-5 sm:p-6 rounded-3xl border-2 border-purple-500/80 shadow-[0_0_70px_rgba(168,85,247,0.6)] text-center max-w-md w-full relative">
+            <button
+              onClick={() => setBroadcastGif(null)}
+              className="absolute top-3 right-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white font-bold transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-black text-xs sm:text-sm text-purple-300 mb-3 uppercase tracking-wider">
+              🔥 @{broadcastGif.username} BROADCASTED A POSITION
             </h3>
-            <div className="w-full h-44 rounded-2xl overflow-hidden border border-purple-500/40 mb-2 bg-slate-950">
+            <div className="w-full h-56 sm:h-64 rounded-2xl overflow-hidden border-2 border-purple-500/50 mb-3 bg-[#080312]">
               {renderPositionDiagramSvg(broadcastGif.svgId, broadcastGif.title)}
             </div>
-            <p className="font-black text-sm text-pink-400 uppercase tracking-wider">{broadcastGif.title}</p>
+            <p className="font-black text-base text-pink-400 uppercase tracking-wider">{broadcastGif.title}</p>
           </div>
         </div>
       )}
