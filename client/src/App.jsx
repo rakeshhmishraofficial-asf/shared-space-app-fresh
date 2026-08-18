@@ -674,6 +674,7 @@ function App() {
                 socket={socket}
                 roomCode={currentRoom}
                 username={username}
+                onClearPositionOverlay={() => setBroadcastGif(null)}
               />
             </div>
           </div>

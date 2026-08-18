@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState } from 'react'
-import { Upload, Eraser, Pen } from 'lucide-react'
+import { Upload, Eraser, Pen, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function Canvas({ socket, roomCode, brushType = 'normal', activeSticker, username }) {
+export default function Canvas({ socket, roomCode, brushType = 'normal', activeSticker, username, onClearPositionOverlay }) {
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -11,6 +11,7 @@ export default function Canvas({ socket, roomCode, brushType = 'normal', activeS
   const [tool, setTool] = useState('pen') // 'pen' or 'eraser'
   const hueRef = useRef(0)
   const drawNoticeTimeoutRef = useRef(null)
+  const lastTapRef = useRef(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -24,7 +25,7 @@ export default function Canvas({ socket, roomCode, brushType = 'normal', activeS
     ctx.lineJoin = 'round'
   }, [])
 
-  // Listen for drawings & ghost snaps from other users
+  // Listen for drawings from other users
   useEffect(() => {
     if (!socket) return
 
@@ -37,353 +38,171 @@ export default function Canvas({ socket, roomCode, brushType = 'normal', activeS
       if (!canvas) return
       const ctx = canvas.getContext('2d')
       ctx.clearRect(0, 0, canvas.width, canvas.height)
+      if (onClearPositionOverlay) onClearPositionOverlay()
     })
-
-    socket.on('ghost:snap_result', ({ username: snapUser, photoData }) => {
-      if (!photoData) return;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        const x = Math.random() * (canvas.width - 240);
-        const y = Math.random() * (canvas.height - 240);
-        
-        // Draw polaroid background
-        ctx.fillStyle = '#1e1b4b';
-        ctx.fillRect(x, y, 220, 240);
-        ctx.drawImage(img, x + 10, y + 10, 200, 170);
-        
-        ctx.fillStyle = '#ec4899';
-        ctx.font = 'bold 12px monospace';
-        ctx.fillText(`CAUGHT IN 4K 📸 @${snapUser}`, x + 12, y + 205);
-        ctx.fillStyle = '#a855f7';
-        ctx.font = '10px monospace';
-        ctx.fillText(new Date().toLocaleTimeString(), x + 12, y + 225);
-      };
-      img.src = photoData;
-      toast(`👻 Ghost Snap pinned by @${snapUser}!`, { icon: '📸' });
-    });
 
     return () => {
       socket.off('draw')
       socket.off('clear-canvas')
-      socket.off('ghost:snap_result')
     }
-  }, [socket])
+  }, [socket, onClearPositionOverlay])
 
   const drawLine = (data) => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
 
-    if (data.image) {
-      const img = new Image()
-      img.onload = () => {
-        ctx.drawImage(img, data.x, data.y, data.width, data.height)
-      }
-      img.src = data.image
-      return
-    }
+    ctx.strokeStyle = data.tool === 'eraser' ? '#0b0518' : data.color
+    ctx.lineWidth = data.lineWidth
 
-    if (data.sticker) {
-      ctx.font = `${data.lineWidth * 10}px sans-serif`
-      ctx.fillText(data.sticker, data.x1, data.y1)
-      return
+    if (data.brushType === 'rainbow') {
+      hueRef.current = (hueRef.current + 3) % 360
+      ctx.strokeStyle = `hsl(${hueRef.current}, 100%, 50%)`
+    } else if (data.brushType === 'glow') {
+      ctx.shadowBlur = 15
+      ctx.shadowColor = data.color
+    } else {
+      ctx.shadowBlur = 0
     }
 
     ctx.beginPath()
-    ctx.moveTo(data.x0, data.y0)
-    
-    if (data.tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.lineWidth = data.lineWidth * 4
-    } else if (data.brushType === 'laser') {
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = '#00f0ff'
-      ctx.shadowColor = '#00f0ff'
-      ctx.shadowBlur = 18
-      ctx.lineWidth = data.lineWidth * 2.5
-    } else if (data.brushType === 'rainbow') {
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = data.color || '#ff0055'
-      ctx.shadowColor = data.color || '#ff0055'
-      ctx.shadowBlur = 8
-      ctx.lineWidth = data.lineWidth * 1.5
-    } else {
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = data.color || '#ff0055'
-      ctx.shadowBlur = 0
-      ctx.lineWidth = data.lineWidth
-    }
-    
-    ctx.lineTo(data.x1, data.y1)
+    ctx.moveTo(data.prevX, data.prevY)
+    ctx.lineTo(data.x, data.y)
     ctx.stroke()
-    ctx.shadowBlur = 0
   }
 
-  const startDrawing = (e) => {
-    e.preventDefault()
-    setIsDrawing(true)
-    const canvas = canvasRef.current
-    const rect = canvas.getBoundingClientRect()
-    
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    
-    const x = clientX - rect.left
-    const y = clientY - rect.top
-
-    if (activeSticker) {
-      const drawData = { x1: x, y1: y, sticker: activeSticker, lineWidth }
-      drawLine(drawData)
-      if (socket) socket.emit('draw', { roomCode, drawData })
+  const handleStart = (e) => {
+    // Detect Double Tap on Touch / Mobile
+    const now = Date.now()
+    if (now - lastTapRef.current < 300) {
+      handleClearCanvas()
       return
     }
+    lastTapRef.current = now
 
-    const ctx = canvas.getContext('2d')
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-    
+    setIsDrawing(true)
+    const { x, y } = getCoordinates(e)
     canvasRef.current.lastX = x
     canvasRef.current.lastY = y
 
-    // Throttle real-time draw notification to room
-    if (socket && !drawNoticeTimeoutRef.current) {
-      socket.emit('draw:notice', { roomCode, username });
+    if (socket && roomCode) {
+      if (drawNoticeTimeoutRef.current) clearTimeout(drawNoticeTimeoutRef.current)
       drawNoticeTimeoutRef.current = setTimeout(() => {
-        drawNoticeTimeoutRef.current = null;
-      }, 5000);
+        socket.emit('draw:notice', { roomCode, username })
+      }, 400)
     }
   }
 
-  const draw = (e) => {
-    e.preventDefault()
-    if (!isDrawing || activeSticker) return
-
+  const handleMove = (e) => {
+    if (!isDrawing) return
+    const { x, y } = getCoordinates(e)
     const canvas = canvasRef.current
-    const rect = canvas.getBoundingClientRect()
-    
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    
-    const x = clientX - rect.left
-    const y = clientY - rect.top
-
-    let currentColor = color
-    if (brushType === 'rainbow') {
-      hueRef.current = (hueRef.current + 5) % 360
-      currentColor = `hsl(${hueRef.current}, 100%, 60%)`
-    }
 
     const drawData = {
-      x0: canvasRef.current.lastX,
-      y0: canvasRef.current.lastY,
-      x1: x,
-      y1: y,
-      color: currentColor,
-      lineWidth,
+      prevX: canvas.lastX,
+      prevY: canvas.lastY,
+      x,
+      y,
+      color,
+      lineWidth: tool === 'eraser' ? 24 : lineWidth,
       tool,
-      brushType: brushType || 'normal'
+      brushType,
+      roomCode
     }
 
     drawLine(drawData)
-    
-    if (socket) {
+
+    if (socket && roomCode) {
       socket.emit('draw', { roomCode, drawData })
     }
 
-    canvasRef.current.lastX = x
-    canvasRef.current.lastY = y
+    canvas.lastX = x
+    canvas.lastY = y
   }
 
-  const stopDrawing = (e) => {
-    e.preventDefault()
+  const handleEnd = () => {
     setIsDrawing(false)
   }
 
-  const clearCanvas = () => {
+  const getCoordinates = (e) => {
     const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    }
+  }
+
+  const handleClearCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    
-    // Notify other users
-    if (socket) {
+
+    if (onClearPositionOverlay) {
+      onClearPositionOverlay()
+    }
+
+    if (socket && roomCode) {
       socket.emit('clear-canvas', { roomCode })
     }
-    
-    toast.success('Canvas cleared')
+
+    toast('Canvas & Position Overlay Cleared 🧹', { icon: '✨' })
   }
-
-  const handleCanvasTap = (e) => {
-    // Check if it's a double tap (two taps within 300ms)
-    const now = Date.now()
-    const lastTap = canvasRef.current.lastTapTime || 0
-    
-    if (now - lastTap < 300) {
-      // Double tap detected - clear canvas
-      clearCanvas()
-      canvasRef.current.lastTapTime = 0
-    } else {
-      canvasRef.current.lastTapTime = now
-    }
-  }
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = canvasRef.current
-        const ctx = canvas.getContext('2d')
-        
-        // Calculate scaling to fit canvas
-        const scale = Math.min(
-          canvas.width / img.width,
-          canvas.height / img.height,
-          1
-        )
-        
-        const x = (canvas.width - img.width * scale) / 2
-        const y = (canvas.height - img.height * scale) / 2
-        
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
-        toast.success('Image uploaded to room canvas! 🖼️')
-        
-        // Emit image to room
-        if (socket) {
-          const drawData = {
-            image: event.target.result,
-            x, y,
-            width: img.width * scale,
-            height: img.height * scale
-          }
-          socket.emit('draw', { roomCode, drawData })
-        }
-      }
-      img.src = event.target.result
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const colors = ['#ffffff', '#ff6b6b', '#4ecdc4', '#ffe66d', '#a8e6cf', '#ff8b94', '#ffd93d', '#6bcf7f']
 
   return (
-    <div className="relative h-full">
-      {/* Info Banner */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 glass px-4 py-2 rounded-lg text-sm z-10 pointer-events-none">
-        💡 Double-tap canvas to clear
-      </div>
-
+    <div className="relative w-full h-full bg-[#080312] overflow-hidden">
+      {/* Canvas */}
       <canvas
         ref={canvasRef}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-        onTouchStart={startDrawing}
-        onTouchMove={draw}
-        onTouchEnd={(e) => {
-          stopDrawing(e)
-          handleCanvasTap(e)
-        }}
-        onClick={handleCanvasTap}
-        className="absolute inset-0 w-full h-full cursor-crosshair"
-        style={{ touchAction: 'none' }}
+        onMouseDown={handleStart}
+        onMouseMove={handleMove}
+        onMouseUp={handleEnd}
+        onTouchStart={handleStart}
+        onTouchMove={handleMove}
+        onTouchEnd={handleEnd}
+        onDoubleClick={handleClearCanvas}
+        className="w-full h-full cursor-crosshair touch-none"
       />
 
-      {/* Drawing Tools */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 glass px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center gap-2 md:gap-4 z-10 max-w-[95vw] overflow-x-auto">
-        {/* Tool Selection */}
-        <div className="flex items-center gap-1 md:gap-2">
+      {/* Floating Canvas Controls */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-2 bg-black/90 backdrop-blur-2xl border-2 border-purple-500/60 rounded-full shadow-[0_0_30px_rgba(168,85,247,0.5)] max-w-[95%] overflow-x-auto">
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className="w-7 h-7 rounded-full border-2 border-white/40 cursor-pointer bg-transparent"
+          title="Brush Color"
+        />
+
+        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
           <button
             onClick={() => setTool('pen')}
-            className={`p-1.5 md:p-2 rounded-lg transition-all ${
-              tool === 'pen' ? 'bg-purple-500' : 'hover:bg-white/10'
+            className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+              tool === 'pen' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
             }`}
-            title="Pen"
           >
-            <Pen className="w-4 h-4 md:w-5 md:h-5" />
+            <Pen className="w-4 h-4" />
           </button>
           <button
             onClick={() => setTool('eraser')}
-            className={`p-1.5 md:p-2 rounded-lg transition-all ${
-              tool === 'eraser' ? 'bg-purple-500' : 'hover:bg-white/10'
+            className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+              tool === 'eraser' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
             }`}
-            title="Eraser"
           >
-            <Eraser className="w-4 h-4 md:w-5 md:h-5" />
+            <Eraser className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="w-px h-4 md:h-6 bg-white/20"></div>
-
-        {/* Colors */}
-        {tool === 'pen' && (
-          <>
-            <div className="flex items-center gap-1 md:gap-2">
-              {colors.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`w-6 h-6 md:w-8 md:h-8 rounded-full border-2 transition-all ${
-                    color === c ? 'border-white scale-110' : 'border-white/30'
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-            <div className="w-px h-4 md:h-6 bg-white/20"></div>
-          </>
-        )}
-
-        {/* Line Width */}
-        <div className="hidden md:flex items-center gap-2">
-          <span className="text-sm text-gray-400">Size:</span>
-          <input
-            type="range"
-            min="1"
-            max="10"
-            value={lineWidth}
-            onChange={(e) => setLineWidth(Number(e.target.value))}
-            className="w-20 md:w-24"
-          />
-        </div>
-
-        <div className="w-px h-4 md:h-6 bg-white/20"></div>
-
-        {/* Upload Image */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-        />
         <button
-          onClick={() => fileInputRef.current?.click()}
-          className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg transition-all"
-          title="Upload Image"
+          onClick={handleClearCanvas}
+          className="p-2 rounded-xl bg-red-600/30 hover:bg-red-600/50 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1 transition-all"
+          title="Clear Canvas & Position Overlay (Or Double Tap Canvas)"
         >
-          <Upload className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
-
-        <div className="w-px h-4 md:h-6 bg-white/20"></div>
-
-        {/* Clear Button */}
-        <button
-          onClick={clearCanvas}
-          className="px-3 md:px-4 py-1.5 md:py-2 bg-red-500 hover:bg-red-600 rounded-lg font-semibold transition-all text-sm md:text-base"
-        >
-          Clear
+          <Trash2 className="w-4 h-4" />
+          <span className="hidden sm:inline">Clear Canvas</span>
         </button>
       </div>
     </div>
