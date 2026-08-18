@@ -149,7 +149,7 @@ export default function Canvas({ socket, roomCode, brushType = 'normal', activeS
       socket.emit('clear-canvas', { roomCode })
     }
 
-    toast('Canvas & Position Overlay Cleared 🧹', { icon: '✨' })
+    toast('Cleared 🧹', { duration: 1200, style: { fontSize: '11px', padding: '4px 10px', background: '#0b0518', color: '#ec4899', border: '1px solid #8b5cf6' } })
   }
 
   return (
